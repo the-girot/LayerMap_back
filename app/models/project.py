@@ -40,3 +40,6 @@ class Project(Base):
     rpi_mappings: Mapped[list["RPIMapping"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    members: Mapped[list["ProjectMember"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )

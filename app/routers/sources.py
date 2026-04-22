@@ -1,7 +1,8 @@
 # app/routers/sources.py
 from fastapi import APIRouter, HTTPException
 
-from app.core.dependencies import DBSession, ValidProject
+from app.core.dependencies import ValidProject
+from app.database import DBSession
 from app.schemas.mapping_table import MappingTableCreate, MappingTableOut
 from app.schemas.source import SourceCreate, SourceDetailOut, SourceOut, SourceUpdate
 from app.services import mapping_tables as mt_svc
@@ -48,8 +49,6 @@ async def delete_source(source_id: int, project: ValidProject, db: DBSession):
     deleted = await svc.delete(db, project.id, source_id)
     if not deleted:
         raise HTTPException(404, "Источник не найден")
-
-
 
 
 @router.get("/{source_id}/mapping-tables", response_model=list[MappingTableOut])

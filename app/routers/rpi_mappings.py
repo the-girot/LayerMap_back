@@ -1,7 +1,7 @@
-
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.dependencies import DBSession, PaginationDep, ValidProject
+from app.core.dependencies import PaginationDep, ValidProject
+from app.database import DBSession
 from app.schemas.rpi_mapping import (
     RPIMappingCreate,
     RPIMappingOut,

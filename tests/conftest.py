@@ -14,9 +14,19 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.core.cache as cache_module
-from app.core.dependencies import DBSession
-from app.database import Base
+from app.core.auth import get_current_user
+from app.database import Base, get_db
 from app.main import app
+from app.models.user import User
+
+FAKE_USER = User(
+    id=1,
+    email="test@example.com",
+    full_name="Test User",
+    hashed_password="hash",
+    is_active=True,
+    is_superuser=True,
+)
 
 
 @pytest.fixture(scope="session")
@@ -35,20 +45,26 @@ def session_maker(engine):
 
 @pytest.fixture
 async def db_session(session_maker) -> AsyncSession:
-    # Отдельная сессия для фабрик. Фабрики делают commit() — данные видны всем.
     async with session_maker() as session:
         yield session
 
 
 @pytest.fixture(autouse=True)
 async def clean_tables(session_maker):
-    # TRUNCATE ДО теста — отдельная сессия, закрывается до начала теста
     async with session_maker() as session:
         async with session.begin():
             await session.execute(
                 text(
-                    "TRUNCATE projects, sources, mapping_tables, mapping_columns, rpi_mappings "
+                    "TRUNCATE users, project_members, projects, sources, "
+                    "mapping_tables, mapping_columns, rpi_mappings "
                     "RESTART IDENTITY CASCADE"
+                )
+            )
+            # Создаём тестового пользователя сразу после очистки
+            await session.execute(
+                text(
+                    "INSERT INTO users (id, email, full_name, hashed_password, is_active, is_superuser) "
+                    "VALUES (1, 'test@example.com', 'Test User', 'hash', true, true)"
                 )
             )
     yield
@@ -56,13 +72,15 @@ async def clean_tables(session_maker):
 
 @pytest.fixture(autouse=True)
 def override_db(session_maker):
-    # Приложение получает СВОЮ новую сессию из session_maker — не ту что у db_session.
-    # Фабрики сделали commit() → данные в БД → приложение их видит в своей сессии.
     async def _get_db():
         async with session_maker() as session:
             yield session
 
-    app.dependency_overrides[DBSession] = _get_db
+    async def _get_current_user():
+        return FAKE_USER
+
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_current_user] = _get_current_user
     yield
     app.dependency_overrides.clear()
 

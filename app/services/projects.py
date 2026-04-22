@@ -11,6 +11,7 @@ from app.core.cache import (
 )
 from app.core.utils import handle_integrity
 from app.models.project import Project, ProjectStatus
+from app.models.project_member import ProjectMember, ProjectRole
 from app.schemas.project import (
     ProjectCreate,
     ProjectKPIOut,
@@ -18,6 +19,7 @@ from app.schemas.project import (
     ProjectSummaryOut,
     ProjectUpdate,
 )
+from app.services.users import get_project_member
 
 # Ключи кэша списков и агрегатов по проектам.
 # PROJECTS_LIST_KEY импортируется из app.core.cache
@@ -175,7 +177,11 @@ async def get_recent(
     return projects
 
 
-async def create(db: AsyncSession, payload: ProjectCreate) -> Project:
+async def create(
+    db: AsyncSession,
+    payload: ProjectCreate,
+    user_id: int,
+) -> Project:
     """
     Create a new project and invalidate project-related caches.
 
@@ -184,6 +190,7 @@ async def create(db: AsyncSession, payload: ProjectCreate) -> Project:
     - добавить его в сессию и попытаться закоммитить в контексте
       `handle_integrity`, который преобразует `IntegrityError` в 409;
     - после успешного коммита обновить объект через `db.refresh`;
+    - добавить текущего пользователя как owner проекта;
     - удалить кэши:
         * общего списка проектов (PROJECTS_LIST_KEY);
         * KPI (PROJECTS_KPI_KEY);
@@ -192,6 +199,7 @@ async def create(db: AsyncSession, payload: ProjectCreate) -> Project:
     Параметры:
         db: асинхронная SQLAlchemy-сессия.
         payload: данные нового проекта (имя, описание, статус и т.д.).
+        user_id: ID пользователя, создающего проект.
 
     Возвращает:
         Созданный ORM-объект Project.
@@ -205,6 +213,16 @@ async def create(db: AsyncSession, payload: ProjectCreate) -> Project:
         await db.commit()
 
     await db.refresh(obj)
+
+    # Добавить текущего пользователя как owner проекта
+    member = ProjectMember(
+        user_id=user_id,
+        project_id=obj.id,
+        role=ProjectRole.owner,
+    )
+    db.add(member)
+    await db.commit()
+
     await cache_delete(PROJECTS_LIST_KEY, PROJECTS_KPI_KEY, PROJECTS_RECENT_KEY)
     return obj
 
@@ -344,3 +362,67 @@ async def get_filtered_list(
 
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+async def check_owner_access(
+    db: AsyncSession,
+    project_id: int,
+    user_id: int,
+) -> bool:
+    """
+    Проверить, является ли пользователь владельцем проекта.
+
+    Параметры:
+        db: асинхронная сессия БД.
+        project_id: ID проекта.
+        user_id: ID пользователя.
+
+    Возвращает:
+        True, если пользователь является владельцем проекта.
+    """
+    member = await get_project_member(db, user_id=user_id, project_id=project_id)
+    if not member:
+        return False
+    return member.role == ProjectRole.owner
+
+
+async def check_editor_access(
+    db: AsyncSession,
+    project_id: int,
+    user_id: int,
+) -> bool:
+    """
+    Проверить, имеет ли пользователь права редактора или выше.
+
+    Параметры:
+        db: асинхронная сессия БД.
+        project_id: ID проекта.
+        user_id: ID пользователя.
+
+    Возвращает:
+        True, если пользователь имеет права editor или owner.
+    """
+    member = await get_project_member(db, user_id=user_id, project_id=project_id)
+    if not member:
+        return False
+    return member.role in (ProjectRole.editor, ProjectRole.owner)
+
+
+async def check_viewer_access(
+    db: AsyncSession,
+    project_id: int,
+    user_id: int,
+) -> bool:
+    """
+    Проверить, имеет ли пользователь права зрителя или выше.
+
+    Параметры:
+        db: асинхронная сессия БД.
+        project_id: ID проекта.
+        user_id: ID пользователя.
+
+    Возвращает:
+        True, если пользователь имеет права viewer, editor или owner.
+    """
+    member = await get_project_member(db, user_id=user_id, project_id=project_id)
+    return member is not None

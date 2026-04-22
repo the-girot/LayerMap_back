@@ -36,18 +36,24 @@ class MappingColumn(Base):
         back_populates="source_column"
     )
 
+
 class MappingTable(Base):
     __tablename__ = "mapping_tables"
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
-    # ❌ Убрать: source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ...))
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE")
+    )
     name: Mapped[str]
     description: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
+    )
 
     project: Mapped["Project"] = relationship(back_populates="mapping_tables")
-    columns: Mapped[list["MappingColumn"]] = relationship(back_populates="mapping_table", cascade="all, delete-orphan")
+    columns: Mapped[list["MappingColumn"]] = relationship(
+        back_populates="mapping_table", cascade="all, delete-orphan"
+    )
 
     # One-to-many: один MappingTable → много Sources
     sources: Mapped[list["Source"]] = relationship(

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from app.core.dependencies import DBSession, ValidProject
+from app.core.dependencies import ValidProject
+from app.database import DBSession
 from app.schemas.mapping_table import (
     MappingColumnCreate,
     MappingColumnOut,

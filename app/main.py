@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.core.cache import _pool, get_redis
 from app.core.config import settings
 from app.core.middleware import CORSMiddleware as AppCORSMiddleware
-from app.routers import mapping_tables, projects, rpi_mappings, sources
+from app.routers import auth, mapping_tables, projects, rpi_mappings, sources
 
 
 @asynccontextmanager
@@ -33,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sources.router)
 app.include_router(mapping_tables.router)

@@ -2,19 +2,14 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Path, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import DBSession
 from app.models.project import Project
 from app.services import projects as project_svc
 
-# ── DB сессия ─────────────────────────────────────────────────
-DBSession = Annotated[AsyncSession, Depends(get_db)]
 
-
-# ── Получение проекта по project_id из пути ───────────────────
 async def get_project_or_404(
-    db: Annotated[AsyncSession, Depends(get_db)],
+    db: DBSession,
     project_id: int = Path(...),
 ) -> Project:
     project = await project_svc.get_one(db, project_id)
@@ -26,7 +21,6 @@ async def get_project_or_404(
 ValidProject = Annotated[Project, Depends(get_project_or_404)]
 
 
-# ── Пагинация ─────────────────────────────────────────────────
 @dataclass
 class Pagination:
     skip: int = Query(default=0, ge=0)
