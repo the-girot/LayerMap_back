@@ -1,8 +1,9 @@
+import re
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
-import re
 
 
 class CORSMiddleware(BaseHTTPMiddleware):
@@ -11,11 +12,14 @@ class CORSMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: ASGIApp,
-        allow_origins: list[str] = ["*"],
-        allow_methods: list[str] = ["*"],
-        allow_headers: list[str] = ["*"],
+        allow_origins: list[str] | None = None,
+        allow_methods: list[str] | None = None,
+        allow_headers: list[str] | None = None,
         allow_credentials: bool = False,
     ):
+        self.allow_origins = allow_origins or ["*"]
+        self.allow_methods = allow_methods or ["*"]
+        self.allow_headers = allow_headers or ["*"]
         super().__init__(app)
         self.allow_origins = allow_origins
         self.allow_methods = allow_methods
@@ -24,28 +28,36 @@ class CORSMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         origin = request.headers.get("origin")
-        
+
         # Обработка preflight-запросов (OPTIONS)
         if request.method == "OPTIONS":
             if origin and self.is_allowed(origin):
                 response = Response(status_code=204)
                 response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
-                response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)
+                response.headers["Access-Control-Allow-Methods"] = ", ".join(
+                    self.allow_methods
+                )
+                response.headers["Access-Control-Allow-Headers"] = ", ".join(
+                    self.allow_headers
+                )
                 if self.allow_credentials:
                     response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Max-Age"] = "86400"
                 return response
             else:
                 return Response(status_code=400)
-        
+
         response = await call_next(request)
 
         # Добавляем CORS-заголовки ко всем ответам
         if origin and self.is_allowed(origin):
             response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
-            response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)
+            response.headers["Access-Control-Allow-Methods"] = ", ".join(
+                self.allow_methods
+            )
+            response.headers["Access-Control-Allow-Headers"] = ", ".join(
+                self.allow_headers
+            )
             if self.allow_credentials:
                 response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Max-Age"] = "86400"
@@ -60,7 +72,9 @@ class CORSMiddleware(BaseHTTPMiddleware):
             if origin == allowed:
                 return True
             # Поддержка регулярных выражений для localhost
-            if allowed.startswith("http://localhost:") or allowed.startswith("http://127.0.0.1:"):
+            if allowed.startswith("http://localhost:") or allowed.startswith(
+                "http://127.0.0.1:"
+            ):
                 pattern = allowed.replace(".", r"\.").replace("*", ".*")
                 if re.match(pattern, origin):
                     return True

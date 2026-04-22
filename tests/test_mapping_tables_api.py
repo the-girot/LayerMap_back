@@ -1,10 +1,10 @@
 import pytest
 
 from tests.factories import (
+    create_mapping_column,
+    create_mapping_table,
     create_project,
     create_source,
-    create_mapping_table,
-    create_mapping_column,
 )
 
 

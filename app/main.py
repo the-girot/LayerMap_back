@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
+from app.core.cache import _pool, get_redis
 from app.core.config import settings
-from app.core.cache import get_redis, _pool
 from app.core.middleware import CORSMiddleware as AppCORSMiddleware
-from app.routers import projects, sources, mapping_tables, rpi_mappings
+from app.routers import mapping_tables, projects, rpi_mappings, sources
 
 
 @asynccontextmanager

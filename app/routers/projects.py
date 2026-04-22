@@ -1,7 +1,14 @@
-from typing import Optional
-from fastapi import APIRouter, Query, HTTPException
-from app.core.dependencies import DBSession, ValidProject, PaginationDep
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectOut
+from fastapi import APIRouter, HTTPException, Query
+
+from app.core.dependencies import DBSession, ValidProject
+from app.models.project import ProjectStatus
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectKPIOut,
+    ProjectOut,
+    ProjectSummaryOut,
+    ProjectUpdate,
+)
 from app.services import projects as svc
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -9,8 +16,62 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.get("", response_model=list[ProjectOut])
 @router.get("/", response_model=list[ProjectOut])
-async def list_projects(db: DBSession):
-    projects = await svc.get_list(db)
+async def list_projects(
+    db: DBSession,
+    status: ProjectStatus | None = Query(
+        default=None,
+        description="Фильтр по статусу проекта (active/draft/archived)",
+    ),
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        description="Поиск по подстроке в названии (case-insensitive)",
+    ),
+    page: int = Query(
+        default=1,
+        ge=1,
+        description="Номер страницы (начиная с 1)",
+    ),
+    size: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+        description="Размер страницы (количество проектов на странице)",
+    ),
+    sort_by: str = Query(
+        default="updated_at",
+        description="Поле сортировки (пока поддерживается только 'updated_at')",
+    ),
+    sort_dir: str = Query(
+        default="desc",
+        pattern="^(asc|desc)$",
+        description="Направление сортировки: 'asc' или 'desc'",
+    ),
+):
+    """
+    Получить список проектов с фильтрами, поиском и пагинацией.
+
+    Фильтры:
+    - status: фильтрация по статусу проекта.
+    - search: подстрочный поиск по имени (регистронезависимый).
+
+    Пагинация:
+    - page: номер страницы, начиная с 1.
+    - size: количество элементов на странице (1–100).
+
+    Сортировка:
+    - sort_by: поле сортировки, по умолчанию updated_at.
+    - sort_dir: направление сортировки ('asc' или 'desc').
+    """
+    projects = await svc.get_filtered_list(
+        db,
+        status=status,
+        search=search,
+        page=page,
+        size=size,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
     return [
         ProjectOut(
             id=p.id,
@@ -26,6 +87,19 @@ async def list_projects(db: DBSession):
 
 @router.get("/{project_id}", response_model=ProjectOut)
 async def get_project(project: ValidProject) -> ProjectOut:
+    """
+    Получить детали конкретного проекта по идентификатору.
+
+    Проект предварительно загружается через зависимость `ValidProject`,
+    которая либо возвращает ORM-объект `Project`, либо выбрасывает 404,
+    если проект не найден.
+
+    Параметры:
+        project: валидный проект, загруженный зависимостью `ValidProject`.
+
+    Возвращает:
+        Объект `ProjectOut` с полным набором полей.
+    """
     return ProjectOut(
         id=project.id,
         name=project.name,
@@ -39,6 +113,21 @@ async def get_project(project: ValidProject) -> ProjectOut:
 @router.post("", response_model=ProjectOut, status_code=201)
 @router.post("/", response_model=ProjectOut, status_code=201)
 async def create_project(payload: ProjectCreate, db: DBSession):
+    """
+    Создать новый проект.
+
+    Делегирует создание в сервисный слой (`svc.create`), где:
+    - создаётся ORM-объект `Project` из входной схемы `ProjectCreate`;
+    - выполняется коммит в БД с обработкой `IntegrityError` (409 при дубликате имени);
+    - инвалидируются кэши списка проектов, KPI и последних проектов.
+
+    Параметры:
+        payload: данные нового проекта (имя, описание, статус).
+        db: асинхронная сессия БД.
+
+    Возвращает:
+        Объект `ProjectOut` для созданного проекта.
+    """
     obj = await svc.create(db, payload)
     return ProjectOut(
         id=obj.id,
@@ -52,6 +141,27 @@ async def create_project(payload: ProjectCreate, db: DBSession):
 
 @router.patch("/{project_id}", response_model=ProjectOut)
 async def update_project(payload: ProjectUpdate, project: ValidProject, db: DBSession):
+    """
+    Обновить существующий проект.
+
+    Шаги:
+    - через зависимость `ValidProject` убеждаемся, что проект существует (404 иначе);
+    - передаём частичное обновление в `svc.update`, который применяет PATCH и
+      обрабатывает возможный конфликт уникальности имени;
+    - после успешного обновления инвалидируются кэши проекта, списка, KPI и последних проектов.
+
+    Параметры:
+        payload: частичное обновление полей проекта.
+        project: текущий проект, загруженный через `ValidProject`.
+        db: асинхронная сессия БД.
+
+    Возвращает:
+        Объект `ProjectOut` для обновлённого проекта.
+
+    Исключения:
+        HTTPException 404: если проект не найден (дополнительная проверка на случай
+        состязательных условий).
+    """
     obj = await svc.update(db, project.id, payload)
     if not obj:
         raise HTTPException(404, "Проект не найден")
@@ -67,4 +177,77 @@ async def update_project(payload: ProjectUpdate, project: ValidProject, db: DBSe
 
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(project: ValidProject, db: DBSession):
+    """
+    Удалить проект по идентификатору.
+
+    Проект предварительно загружается через `ValidProject` (404, если не найден),
+    после чего сервисный слой выполняет физическое удаление и инвалидацию
+    кэшей проекта, списка проектов, KPI и последних проектов.
+
+    Параметры:
+        project: валидный проект, загруженный через `ValidProject`.
+        db: асинхронная сессия БД.
+
+    Возвращает:
+        Ничего (HTTP 204 No Content при успехе).
+    """
     await svc.delete(db, project.id)
+
+
+@router.get("/kpi", response_model=ProjectKPIOut)
+async def get_projects_kpi(db: DBSession):
+    """
+    Получить агрегированные KPI по проектам для главной страницы.
+
+    Эндпоинт возвращает:
+    - общее количество проектов;
+    - количество активных проектов;
+    - количество проектов в статусе черновика;
+    - количество архивных проектов.
+
+    Значение кэшируется в Redis через сервисный слой (`svc.get_kpi`) с коротким TTL,
+    чтобы не пересчитывать агрегаты при каждом запросе дашборда.
+
+    Параметры:
+        db: асинхронная сессия БД.
+
+    Возвращает:
+        Объект `ProjectKPIOut`.
+    """
+    return await svc.get_kpi(db)
+
+
+@router.get("/recent", response_model=list[ProjectSummaryOut])
+async def get_recent_projects(
+    db: DBSession,
+    limit: int = Query(5, ge=1, le=50, description="Максимальное количество проектов"),
+):
+    """
+    Получить список последних изменённых проектов.
+
+    Эндпоинт предназначен для главной страницы дашборда и возвращает краткую
+    информацию по проектам:
+    - id, name, status, updated_at;
+    - отсортированную по updated_at в порядке убывания;
+    - ограниченную параметром ``limit`` (по умолчанию 5).
+
+    Для дефолтного значения limit сервисный слой использует Redis-кэш
+    (`svc.get_recent`), для остальных значений всегда выполняется запрос к БД.
+
+    Параметры:
+        db: асинхронная сессия БД.
+        limit: максимальное число проектов (1–50, по умолчанию 5).
+
+    Возвращает:
+        Список объектов `ProjectSummaryOut`.
+    """
+    projects = await svc.get_recent(db, limit=limit)
+    return [
+        ProjectSummaryOut(
+            id=p.id,
+            name=p.name,
+            status=p.status,
+            updated_at=p.updated_at,
+        )
+        for p in projects
+    ]

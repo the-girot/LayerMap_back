@@ -1,17 +1,18 @@
-from pydantic import BaseModel, model_validator
-from typing import Optional
 from datetime import datetime
-from app.models.rpi_mapping import ColumnType
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+from app.models.mapping_table import ColumnType
 
 
 # ── MappingColumn ─────────────────────────────────────────────
 class MappingColumnBase(BaseModel):
-    name          : str
-    type          : ColumnType     = ColumnType.dimension
-    data_type     : str
-    description   : Optional[str] = None
-    is_calculated : bool           = False
-    formula       : Optional[str]  = None
+    name: str
+    type: ColumnType = ColumnType.dimension
+    data_type: str
+    description: str | None = None
+    is_calculated: bool = False
+    formula: str | None = None
 
     @model_validator(mode="after")
     def check_formula(self):
@@ -27,44 +28,43 @@ class MappingColumnCreate(MappingColumnBase):
 
 
 class MappingColumnUpdate(BaseModel):
-    name          : Optional[str]        = None
-    type          : Optional[ColumnType] = None
-    data_type     : Optional[str]        = None
-    description   : Optional[str]        = None
-    is_calculated : Optional[bool]       = None
-    formula       : Optional[str]        = None
+    name: str | None = None
+    type: ColumnType | None = None
+    data_type: str | None = None
+    description: str | None = None
+    is_calculated: bool | None = None
+    formula: str | None = None
 
 
 class MappingColumnOut(MappingColumnBase):
-    id               : int
-    mapping_table_id : int
-    created_at       : datetime
+    id: int
+    mapping_table_id: int
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
 # ── MappingTable ──────────────────────────────────────────────
 class MappingTableBase(BaseModel):
-    name        : str
-    description : Optional[str] = None
-    source_id   : Optional[int] = None
+    name: str
+    description: str | None = None
 
 
 class MappingTableCreate(MappingTableBase):
-    pass
+    source_id: int | None = None
 
 
 class MappingTableUpdate(BaseModel):
-    name        : Optional[str] = None
-    description : Optional[str] = None
-    source_id   : Optional[int] = None
+    name: str | None = None
+    description: str | None = None
 
 
 class MappingTableOut(MappingTableBase):
-    id         : int
-    project_id : int
-    created_at : datetime
-    updated_at : datetime
-    columns    : list[MappingColumnOut] = []
+    id: int
+    project_id: int
+    source_id: int | None = None  # вычисляется через Sources
+    created_at: datetime
+    updated_at: datetime
+    columns: list["MappingColumnOut"] = []
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

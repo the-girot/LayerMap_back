@@ -1,13 +1,17 @@
 # tests/factories.py
 from datetime import date
-from app.models.project import Project, ProjectStatus
-from app.models.source import Source, SourceType
-from app.models.mapping_table import MappingTable
-from app.models.rpi_mapping import MappingColumn, RPIMapping, RPIStatus, MeasurementType, ColumnType
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.mapping_table import ColumnType, MappingColumn, MappingTable
+from app.models.project import Project, ProjectStatus
+from app.models.rpi_mapping import MeasurementType, RPIMapping, RPIStatus
+from app.models.source import Source, SourceType
 
-async def create_project(session: AsyncSession, name="Проект А", status=ProjectStatus.active):
+
+async def create_project(
+    session: AsyncSession, name="Проект А", status=ProjectStatus.active
+):
     project = Project(name=name, description="Тестовый проект", status=status)
     session.add(project)
     await session.commit()
@@ -15,8 +19,9 @@ async def create_project(session: AsyncSession, name="Проект А", status=P
     return project
 
 
-
-async def create_source(session: AsyncSession, project: Project, name="Источник", type_=SourceType.DB):
+async def create_source(
+    session: AsyncSession, project: Project, name="Источник", type_=SourceType.DB
+):
     src = Source(
         project_id=project.id,
         name=name,
@@ -30,12 +35,13 @@ async def create_source(session: AsyncSession, project: Project, name="Исто�
     return src
 
 
-async def create_mapping_table(session: AsyncSession, project: Project, source=None, name="Таблица"):
+async def create_mapping_table(
+    session: AsyncSession, project: Project, source=None, name="Таблица"
+):
     mt = MappingTable(
-        project_id=project.id,
-        source_id=source.id if source else None,
-        name=name,
+        name="Таблица",
         description="Тестовая таблица",
+        project_id=project.id,
     )
     session.add(mt)
     await session.commit()
@@ -43,7 +49,9 @@ async def create_mapping_table(session: AsyncSession, project: Project, source=N
     return mt
 
 
-async def create_mapping_column(session: AsyncSession, table: MappingTable, name="customer_id"):
+async def create_mapping_column(
+    session: AsyncSession, table: MappingTable, name="customer_id"
+):
     col = MappingColumn(
         mapping_table_id=table.id,
         name=name,

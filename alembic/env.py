@@ -6,15 +6,14 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from app.core.config import settings
 from app.database import Base
+from app.models.mapping_table import MappingColumn, MappingTable  # noqa: F401
+from app.models.project import Project  # noqa: F401
+from app.models.rpi_mapping import RPIMapping  # noqa: F401
+from app.models.source import Source  # noqa: F401
 
 # ── Импорт всех моделей для autogenerate ──────────────────────
-from app.models.project import Project
-from app.models.source import Source
-from app.models.mapping_table import MappingTable
-from app.models.rpi_mapping import MappingColumn, RPIMapping
 
 # ── Alembic Config ────────────────────────────────────────────
 config = context.config
@@ -36,7 +35,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,        # отслеживать изменения типов колонок
+        compare_type=True,  # отслеживать изменения типов колонок
         compare_server_default=True,
     )
     with context.begin_transaction():

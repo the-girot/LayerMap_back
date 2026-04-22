@@ -1,11 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.core.cache import cache_delete, cache_get, cache_set, settings, sources_key
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceUpdate
-from app.core.cache import (
-    cache_get, cache_set, cache_delete,
-    sources_key, settings
-)
 
 
 async def get_list(db: AsyncSession, project_id: int) -> list[Source]:
@@ -15,12 +14,16 @@ async def get_list(db: AsyncSession, project_id: int) -> list[Source]:
         return cached
 
     rows = (
-        await db.execute(
-            select(Source)
-            .where(Source.project_id == project_id)
-            .order_by(Source.id)
+        (
+            await db.execute(
+                select(Source)
+                .where(Source.project_id == project_id)
+                .order_by(Source.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     await cache_set(key, [r.__dict__ for r in rows], ttl=settings.CACHE_TTL)
     return rows
@@ -32,14 +35,15 @@ async def get_one(db: AsyncSession, project_id: int, source_id: int) -> Source |
     if cached:
         return cached
 
-    obj = (
-        await db.execute(
-            select(Source).where(
-                Source.id == source_id,
-                Source.project_id == project_id,
-            )
+    stmt = (
+        select(Source)
+        .options(selectinload(Source.mapping_table))
+        .where(
+            Source.id == source_id,
+            Source.project_id == project_id,
         )
-    ).scalar_one_or_none()
+    )
+    obj = (await db.execute(stmt)).scalar_one_or_none()
 
     if obj:
         await cache_set(key, obj.__dict__, ttl=settings.CACHE_TTL)

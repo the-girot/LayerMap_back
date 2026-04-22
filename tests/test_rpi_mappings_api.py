@@ -1,9 +1,9 @@
 import pytest
 
 from tests.factories import (
-    create_project,
-    create_mapping_table,
     create_mapping_column,
+    create_mapping_table,
+    create_project,
     create_rpi,
 )
 

@@ -18,6 +18,7 @@ dependencies = [
     "pytest-timeout>=2.4.0",
     "python-multipart>=0.0.9",
     "redis[asyncio]>=5.0.0",
+    "ruff>=0.15.11",
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.29.0",
 ]
@@ -32,3 +33,49 @@ pythonpath = ["."]
 python_files = "test_*.py"
 python_functions = "test_*"
 timeout = 10
+
+# ── Ruff: общая конфигурация ───────────────────────────────────
+[tool.ruff]
+# Целевая версия Python (должна совпадать с requires-python)
+target-version = "py313"
+# Длина строки (PEP 8 рекомендует 88, Black-совместимое значение)
+line-length = 88
+# Папки, которые Ruff не трогает
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "alembic/versions",   # авто-генерированные миграции трогать не стоит
+    "dist",
+    "build",
+]
+
+# ── Ruff: линтер ──────────────────────────────────────────────
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "TCH", "RUF"]
+ignore = [
+    "E501",   # длина строки — за этим следит formatter
+    "B008",   # Depends() в аргументах FastAPI
+    "TCH001", # мешает с Pydantic/SQLAlchemy
+    "TCH003",
+    "RUF001",
+    "RUF002", # кириллица в docstring — ложные срабатывания
+    "RUF003", # кириллица в комментариях — ложные срабатывания
+]
+
+
+
+# ── Ruff: форматтер ───────────────────────────────────────────
+[tool.ruff.format]
+# Стиль кавычек: double (PEP 8)
+quote-style = "double"
+# Стиль отступов: пробелы (не табы)
+indent-style = "space"
+# Запятые в конце многострочных структур (как в Black)
+skip-magic-trailing-comma = false
+# Форматировать строки-докстринги
+docstring-code-format = true
+
+[tool.ruff.lint.per-file-ignores]
+"app/models/*.py" = ["F821"]   # forward references в SQLAlchemy
+"tests/**/*.py"   = ["S101", "SIM117"]

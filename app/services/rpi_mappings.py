@@ -1,12 +1,19 @@
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
+
+from app.core.cache import (
+    cache_delete,
+    cache_delete_pattern,
+    cache_get,
+    cache_set,
+    hash_params,
+    rpi_list_key,
+    rpi_stats_key,
+    settings,
+)
 from app.models.rpi_mapping import RPIMapping, RPIStatus
 from app.schemas.rpi_mapping import RPIMappingCreate, RPIMappingUpdate, RPIStatsOut
-from app.core.cache import (
-    cache_get, cache_set, cache_delete, cache_delete_pattern,
-    rpi_list_key, rpi_stats_key, hash_params, settings
-)
 
 
 # ── Инвалидация всего кэша проекта ────────────────────────────
@@ -28,10 +35,13 @@ async def get_list(
     limit: int = 20,
 ) -> list[RPIMapping]:
     params_hash = hash_params(
-        status=status, ownership=ownership,
+        status=status,
+        ownership=ownership,
         measurement_type=measurement_type,
         is_calculated=is_calculated,
-        search=search, skip=skip, limit=limit,
+        search=search,
+        skip=skip,
+        limit=limit,
     )
     key = rpi_list_key(project_id, params_hash)
     cached = await cache_get(key)
@@ -115,10 +125,13 @@ async def get_one(db: AsyncSession, project_id: int, rpi_id: int) -> RPIMapping 
 
 
 # ── Создание ──────────────────────────────────────────────────
-async def create(db: AsyncSession, project_id: int, payload: RPIMappingCreate) -> RPIMapping:
+async def create(
+    db: AsyncSession, project_id: int, payload: RPIMappingCreate
+) -> RPIMapping:
     max_num = await db.scalar(
-        select(func.coalesce(func.max(RPIMapping.number), 0))
-        .where(RPIMapping.project_id == project_id)
+        select(func.coalesce(func.max(RPIMapping.number), 0)).where(
+            RPIMapping.project_id == project_id
+        )
     )
     obj = RPIMapping(**payload.model_dump(), project_id=project_id, number=max_num + 1)
     db.add(obj)
