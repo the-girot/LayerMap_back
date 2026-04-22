@@ -23,7 +23,7 @@ def get_pool() -> ConnectionPool:
     if _pool is None:
         _pool = ConnectionPool.from_url(
             settings.REDIS_URL,
-            max_connections=20,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
             decode_responses=True,
         )
     return _pool
@@ -37,6 +37,7 @@ def get_redis() -> Redis:
 
 
 # ── Низкоуровневые хелперы ────────────────────────────────────────────────────
+
 
 async def cache_get(key: str) -> Any | None:
     raw = await get_redis().get(key)
@@ -53,18 +54,21 @@ async def cache_delete(*keys: str) -> None:
 
 
 async def cache_delete_pattern(pattern: str) -> None:
-    """Удаляет все ключи по паттерну (через SCAN, не KEYS)."""
     r = get_redis()
     cursor = 0
-    while True:
+    iterations = 0
+    max_iterations = 1000  # защита от бесконечного цикла
+    while iterations < max_iterations:
         cursor, keys = await r.scan(cursor, match=pattern, count=100)
         if keys:
             await r.delete(*keys)
         if cursor == 0:
             break
+        iterations += 1
 
 
 # ── Namespace хелперы ─────────────────────────────────────────────────────────
+
 
 def project_key(project_id: int, suffix: str = "") -> str:
     return f"project:{project_id}{(':' + suffix) if suffix else ''}"
@@ -94,42 +98,43 @@ def hash_params(**kwargs) -> str:
 
 
 # ── Декоратор для кэширования сервисных функций ───────────────────────────────
+def _to_serializable(obj: Any) -> Any:
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    if isinstance(obj, list):
+        return [_to_serializable(i) for i in obj]
+    return obj
+
+
+async def close_redis() -> None:
+    global _redis, _pool
+    if _redis is not None:
+        await _redis.aclose()
+        _redis = None
+    if _pool is not None:
+        await _pool.aclose()
+        _pool = None
+
 
 def cached(
     key_fn: Callable[..., str],
     ttl: int = settings.CACHE_TTL,
     schema=None,
 ):
-    """
-    Обёртка для кэширования результатов сервисных функций в Redis.
-
-    Параметры:
-        key_fn: функция, принимающая те же args/kwargs, что и целевая функция,
-                и возвращающая строковый ключ кэша.
-        ttl:    время жизни кэша в секундах.
-        schema: Pydantic-модель для десериализации при cache-hit.
-                Если передана — возвращает model_validate(hit) вместо raw dict.
-
-    Пример:
-        @cached(
-            key_fn=lambda db, project_id: rpi_stats_key(project_id),
-            schema=RPIStatsOut,
-        )
-        async def get_stats(db, project_id): ...
-    """
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             key = key_fn(*args, **kwargs)
             hit = await cache_get(key)
             if hit is not None:
-                return schema.model_validate(hit) if schema else hit
+                if schema is None:
+                    return hit
+                if isinstance(hit, list):
+                    return [schema.model_validate(item) for item in hit]
+                return schema.model_validate(hit)
 
             result = await func(*args, **kwargs)
-            serializable = (
-                result.model_dump() if hasattr(result, "model_dump") else result
-            )
-            await cache_set(key, serializable, ttl)
+            await cache_set(key, _to_serializable(result), ttl)
             return result
 
         return wrapper

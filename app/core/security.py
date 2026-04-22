@@ -1,6 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
+
+# OAuth2 схема для Bearer токенов
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -9,20 +13,16 @@ from app.core.config import settings
 # Хеширование паролей (bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 схема для Bearer токенов
-from fastapi.security import OAuth2PasswordBearer
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Проверить соответствие пароля его хешу."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
 def get_password_hash(password: str) -> str:
-    """Создать хеш пароля."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def create_access_token(

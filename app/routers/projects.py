@@ -1,11 +1,9 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.core.auth import CurrentUser, ProjectEditor, ProjectOwner, ProjectViewer
 from app.database import DBSession
 from app.models.project import ProjectStatus
-from app.models.user import User
 from app.schemas.project import (
     ProjectCreate,
     ProjectKPIOut,

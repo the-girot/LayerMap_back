@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.project import ProjectStatus
 
@@ -10,7 +10,7 @@ class ProjectBase(BaseModel):
     Базовые поля проекта, общие для операций создания и чтения.
     """
 
-    name: str
+    name: str = Field(..., max_length=255)
     description: str | None = None
     status: ProjectStatus = ProjectStatus.draft
 

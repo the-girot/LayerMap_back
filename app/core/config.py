@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/rpi_db"
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_TTL: int = 300
+    REDIS_MAX_CONNECTIONS: int = 20
     APP_TITLE: str = "RPI Mapping API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
