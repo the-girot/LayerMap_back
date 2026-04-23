@@ -1,11 +1,13 @@
 import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import create_project
 
 
 @pytest.mark.anyio
-async def test_create_project(client):
-    resp = await client.post(
+async def test_create_project(auth_client: AsyncClient):
+    resp = await auth_client.post(
         "/projects",
         json={"name": "Проект А", "description": "Описание", "status": "active"},
     )
@@ -17,11 +19,11 @@ async def test_create_project(client):
 
 
 @pytest.mark.anyio
-async def test_get_projects_list(client, db_session):
+async def test_get_projects_list(auth_client: AsyncClient, db_session: AsyncSession):
     await create_project(db_session, name="Проект А")
     await create_project(db_session, name="Проект B")
 
-    resp = await client.get("/projects")
+    resp = await auth_client.get("/projects")
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
@@ -29,9 +31,9 @@ async def test_get_projects_list(client, db_session):
 
 
 @pytest.mark.anyio
-async def test_get_project_by_id(client, db_session):
+async def test_get_project_by_id(auth_client: AsyncClient, db_session: AsyncSession):
     project = await create_project(db_session, name="Проект А")
-    resp = await client.get(f"/projects/{project.id}")
+    resp = await auth_client.get(f"/projects/{project.id}")
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == project.id
@@ -39,9 +41,9 @@ async def test_get_project_by_id(client, db_session):
 
 
 @pytest.mark.anyio
-async def test_update_project(client, db_session):
+async def test_update_project(auth_client: AsyncClient, db_session: AsyncSession):
     project = await create_project(db_session, name="Проект А")
-    resp = await client.patch(
+    resp = await auth_client.patch(
         f"/projects/{project.id}",
         json={"name": "Проект A+", "status": "active"},
     )
@@ -51,20 +53,22 @@ async def test_update_project(client, db_session):
 
 
 @pytest.mark.anyio
-async def test_delete_project(client, db_session):
+async def test_delete_project(auth_client: AsyncClient, db_session: AsyncSession):
     project = await create_project(db_session, name="Проект А")
-    resp = await client.delete(f"/projects/{project.id}")
+    resp = await auth_client.delete(f"/projects/{project.id}")
     assert resp.status_code == 204
 
-    resp2 = await client.get(f"/projects/{project.id}")
+    resp2 = await auth_client.get(f"/projects/{project.id}")
     assert resp2.status_code == 404
     assert resp2.json()["detail"] == "Проект не найден"
 
 
 @pytest.mark.anyio
-async def test_project_name_unique_violation(client, db_session):
+async def test_project_name_unique_violation(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     await create_project(db_session, name="Проект А")
-    resp = await client.post(
+    resp = await auth_client.post(
         "/projects",
         json={"name": "Проект А", "description": "Описание", "status": "active"},
     )

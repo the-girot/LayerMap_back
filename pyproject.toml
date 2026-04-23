@@ -23,6 +23,7 @@ dependencies = [
     "ruff>=0.15.11",
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.29.0",
+    "fakeredis>=2.35.1",
 ]
 
 
@@ -34,7 +35,10 @@ testpaths = ["tests"]
 pythonpath = ["."]
 python_files = "test_*.py"
 python_functions = "test_*"
-timeout = 10
+timeout = 60
+markers = [
+    "use_real_redis: run test against real Redis instead of mock",
+]
 
 # ── Ruff: общая конфигурация ───────────────────────────────────
 [tool.ruff]

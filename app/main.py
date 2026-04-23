@@ -44,4 +44,4 @@ app.include_router(rpi_mappings.router)
 async def health():
     async with get_redis() as r:
         redis_ok = await r.ping()
-    return {"status": "ok", "redis": redis_ok}
+    return {"status": "healthy", "redis": redis_ok}

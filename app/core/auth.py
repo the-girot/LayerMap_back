@@ -17,8 +17,14 @@ from app.services import users as user_svc
 
 async def get_current_user(
     db: DBSession,
-    token: Annotated[str, Depends(oauth2_scheme)],
+    token: Annotated[str | None, Depends(oauth2_scheme)],
 ) -> User:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Не авторизован",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_token(token)
     if not payload or "user_id" not in payload:
         raise HTTPException(

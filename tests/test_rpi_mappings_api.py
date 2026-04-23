@@ -1,4 +1,6 @@
 import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import (
     create_mapping_column,
@@ -9,12 +11,14 @@ from tests.factories import (
 
 
 @pytest.mark.anyio
-async def test_create_rpi_requires_formula_if_calculated(client, db_session):
+async def test_create_rpi_requires_formula_if_calculated(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     project = await create_project(db_session)
     mt = await create_mapping_table(db_session, project)
     col = await create_mapping_column(db_session, mt)
 
-    resp_bad = await client.post(
+    resp_bad = await auth_client.post(
         f"/projects/{project.id}/rpi-mappings",
         json={
             "number": 42,
@@ -37,7 +41,7 @@ async def test_create_rpi_requires_formula_if_calculated(client, db_session):
     )
     assert resp_bad.status_code in (400, 422)
 
-    resp_ok = await client.post(
+    resp_ok = await auth_client.post(
         f"/projects/{project.id}/rpi-mappings",
         json={
             "number": 43,
@@ -62,7 +66,9 @@ async def test_create_rpi_requires_formula_if_calculated(client, db_session):
 
 
 @pytest.mark.anyio
-async def test_rpi_list_filters_and_pagination(client, db_session):
+async def test_rpi_list_filters_and_pagination(
+    auth_client: AsyncClient, db_session: AsyncSession
+):
     project = await create_project(db_session)
     mt = await create_mapping_table(db_session, project)
     col = await create_mapping_column(db_session, mt)
@@ -70,7 +76,7 @@ async def test_rpi_list_filters_and_pagination(client, db_session):
     await create_rpi(db_session, project, col)
     await create_rpi(db_session, project, col)
 
-    resp = await client.get(
+    resp = await auth_client.get(
         f"/projects/{project.id}/rpi-mappings",
         params={"skip": 0, "limit": 2},
     )
@@ -78,7 +84,7 @@ async def test_rpi_list_filters_and_pagination(client, db_session):
     data = resp.json()
     assert len(data) == 2
 
-    resp2 = await client.get(
+    resp2 = await auth_client.get(
         f"/projects/{project.id}/rpi-mappings",
         params={"status": "draft"},
     )
@@ -87,13 +93,13 @@ async def test_rpi_list_filters_and_pagination(client, db_session):
 
 
 @pytest.mark.anyio
-async def test_rpi_stats(client, db_session):
+async def test_rpi_stats(auth_client: AsyncClient, db_session: AsyncSession):
     project = await create_project(db_session)
     mt = await create_mapping_table(db_session, project)
     col = await create_mapping_column(db_session, mt)
     await create_rpi(db_session, project, col)
 
-    resp = await client.get(f"/projects/{project.id}/rpi-mappings/stats")
+    resp = await auth_client.get(f"/projects/{project.id}/rpi-mappings/stats")
     assert resp.status_code == 200
     data = resp.json()
     assert "total" in data

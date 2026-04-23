@@ -1,6 +1,7 @@
 # app/routers/sources.py
 from fastapi import APIRouter, HTTPException
 
+from app.core.auth import CurrentUser
 from app.core.dependencies import ValidProject
 from app.database import DBSession
 from app.schemas.mapping_table import MappingTableCreate, MappingTableOut
@@ -13,7 +14,11 @@ router = APIRouter(prefix="/projects/{project_id}/sources", tags=["Sources"])
 
 @router.get("", response_model=list[SourceOut])
 @router.get("/", response_model=list[SourceOut])
-async def list_sources(project: ValidProject, db: DBSession):
+async def list_sources(
+    _: CurrentUser,  # ← должно быть здесь
+    project: ValidProject,
+    db: DBSession,
+):
     return await svc.get_list(db, project.id)
 
 

@@ -1,7 +1,11 @@
-
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.auth import CurrentUser, ProjectEditor, ProjectOwner, ProjectViewer
+from app.core.auth import (
+    CurrentUser,
+    ProjectEditor,
+    ProjectOwner,
+    ProjectViewer,
+)
 from app.database import DBSession
 from app.models.project import ProjectStatus
 from app.schemas.project import (
@@ -142,20 +146,7 @@ async def get_recent_projects(
 async def get_project(
     project: ProjectViewer,
     current_user: CurrentUser,
-) -> ProjectOut:
-    """
-    Получить детали конкретного проекта по идентификатору.
-
-    Проект предварительно загружается через зависимость `ProjectViewer`,
-    которая проверяет, что пользователь имеет доступ к проекту (viewer или выше).
-
-    Параметры:
-        project: валидный проект с проверкой доступа.
-        current_user: текущий аутентифицированный пользователь.
-
-    Возвращает:
-        Объект `ProjectOut` с полным набором полей.
-    """
+):
     return ProjectOut(
         id=project.id,
         name=project.name,

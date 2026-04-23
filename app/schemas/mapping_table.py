@@ -1,8 +1,18 @@
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.models.mapping_table import ColumnType
+
+
+class DataType(str, Enum):
+    string = "string"
+    integer = "integer"
+    float_ = "float"
+    boolean = "boolean"
+    date = "date"
+    datetime = "datetime"
 
 
 # ── MappingColumn ─────────────────────────────────────────────
@@ -24,7 +34,7 @@ class MappingColumnBase(BaseModel):
 
 
 class MappingColumnCreate(MappingColumnBase):
-    pass
+    data_type: DataType
 
 
 class MappingColumnUpdate(BaseModel):

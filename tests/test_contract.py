@@ -33,7 +33,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_project_create_schema_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации схемы ProjectCreate"""
         # Валидный payload
@@ -52,12 +52,14 @@ class TestSchemaContracts:
             pytest.fail(f"Valid payload failed validation: {e}")
 
     @pytest.mark.asyncio
-    async def test_project_create_schema_missing_fields(self, ...):
-    """ProjectCreate требует только name; description и status имеют defaults"""
+    async def test_project_create_schema_missing_fields(
+        self, auth_client: AsyncClient, db_session: AsyncSession
+    ):
+        """ProjectCreate требует только name; description и status имеют defaults"""
         project = ProjectCreate(name="Test Project")
         assert project.name == "Test Project"
-        assert project.status == "draft"      # default
-        assert project.description is None    # default
+        assert project.status == "draft"
+        assert project.description is None
 
         # Проверяем что без name — реально падает
         with pytest.raises(ValidationError):
@@ -65,11 +67,11 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_project_out_schema_serialization(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест сериализации схемы ProjectOut"""
         # Создаем проект через API
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Schema Test", "description": "Desc", "status": "active"},
         )
@@ -84,7 +86,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_source_create_schema_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации схемы SourceCreate"""
         payload = {
@@ -102,7 +104,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_source_invalid_type(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации невалидного типа источника"""
         payload = {
@@ -117,7 +119,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_rpi_mapping_create_schema_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации схемы RPIMappingCreate"""
         payload = {
@@ -134,13 +136,13 @@ class TestSchemaContracts:
         try:
             rpi = RPIMappingCreate(**payload)
             assert rpi.status == "draft"
-            assert rpi.measurement_type == "Метрика"
+            assert rpi.measurement_type == "metric"
         except ValidationError as e:
             pytest.fail(f"Valid payload failed validation: {e}")
 
     @pytest.mark.asyncio
     async def test_rpi_mapping_calculated_requires_formula(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации: calculated требует formula"""
         payload = {
@@ -160,7 +162,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_mapping_column_create_schema_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации схемы MappingColumnCreate"""
         payload = {
@@ -178,7 +180,7 @@ class TestSchemaContracts:
 
     @pytest.mark.asyncio
     async def test_mapping_column_invalid_type(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации невалидного типа колонки"""
         payload = {
@@ -202,10 +204,10 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_project_list_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа списка проектов"""
-        response = await client.get("/projects")
+        response = await auth_client.get("/projects")
         assert response.status_code == 200
 
         data = response.json()
@@ -222,11 +224,11 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_project_detail_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа детали проекта"""
         # Создаем проект
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Contract Test", "description": "Desc", "status": "active"},
         )
@@ -234,7 +236,7 @@ class TestAPIResponseContracts:
         project_id = response.json()["id"]
 
         # Получаем проект
-        response = await client.get(f"/projects/{project_id}")
+        response = await auth_client.get(f"/projects/{project_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -247,10 +249,10 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_source_list_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа списка источников"""
-        response = await client.get("/projects/1/sources")
+        response = await auth_client.get("/projects/1/sources")
         assert response.status_code == 200
 
         data = response.json()
@@ -266,10 +268,10 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_rpi_mapping_list_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа списка RPI mappings"""
-        response = await client.get("/projects/1/rpi-mappings")
+        response = await auth_client.get("/projects/1/rpi-mappings")
         assert response.status_code == 200
 
         data = response.json()
@@ -286,10 +288,10 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_rpi_stats_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа статистики RPI"""
-        response = await client.get("/projects/1/rpi-mappings/stats")
+        response = await auth_client.get("/projects/1/rpi-mappings/stats")
         assert response.status_code == 200
 
         data = response.json()
@@ -304,10 +306,10 @@ class TestAPIResponseContracts:
 
     @pytest.mark.asyncio
     async def test_pagination_response_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ответа с пагинацией"""
-        response = await client.get("/projects/1/rpi-mappings?skip=0&limit=20")
+        response = await auth_client.get("/projects/1/rpi-mappings?skip=0&limit=20")
         assert response.status_code == 200
 
         data = response.json()
@@ -325,10 +327,10 @@ class TestErrorResponseContracts:
 
     @pytest.mark.asyncio
     async def test_404_error_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ошибки 404"""
-        response = await client.get("/projects/999999")
+        response = await auth_client.get("/projects/999999")
         assert response.status_code == 404
 
         data = response.json()
@@ -337,10 +339,10 @@ class TestErrorResponseContracts:
 
     @pytest.mark.asyncio
     async def test_422_error_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ошибки 422"""
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Test", "description": "Desc", "status": "invalid_status"},
         )
@@ -350,7 +352,7 @@ class TestErrorResponseContracts:
         assert "detail" in data
         assert isinstance(data["detail"], list)
 
-    @pytest.mark.skip(reason="Auth not implemented yet")
+    @pytest.mark.asyncio
     async def test_401_error_structure(
         self, client: AsyncClient, db_session: AsyncSession
     ):
@@ -361,24 +363,30 @@ class TestErrorResponseContracts:
         data = response.json()
         assert "detail" in data
 
-    @pytest.mark.skip(reason="Auth not implemented yet")
+    @pytest.mark.asyncio
     async def test_403_error_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self,
+        seeded_project_id: int,
+        another_user_client: AsyncClient,
+        db_session: AsyncSession,
     ):
-        """Тест структуры ошибки 403"""
-        # Пытаемся получить проект без авторизации
-        response = await client.get("/projects/1")
-        assert response.status_code == 401  # Или 403
+        # Проверяем: кто мы?
+        me = await another_user_client.get("/auth/me")
+        print(f"\n[DEBUG] another_user id: {me.json()}")
 
-        data = response.json()
-        assert "detail" in data
+        # Что за проект?
+        print(f"[DEBUG] seeded_project_id: {seeded_project_id}")
+
+        response = await another_user_client.get(f"/projects/{seeded_project_id}")
+        print(f"[DEBUG] response: {response.status_code} {response.json()}")
+        assert response.status_code == 403
 
     @pytest.mark.asyncio
     async def test_405_error_structure(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест структуры ошибки 405"""
-        response = await client.post("/projects/1")
+        response = await auth_client.post("/projects/1")
         assert response.status_code == 405
 
         data = response.json()
@@ -395,11 +403,11 @@ class TestBackwardCompatibility:
 
     @pytest.mark.asyncio
     async def test_optional_fields_backward_compatible(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест обратной совместимости с опциональными полями"""
         # Создаем проект с минимальным набором полей
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Minimal Project", "description": "Desc", "status": "active"},
         )
@@ -413,12 +421,12 @@ class TestBackwardCompatibility:
 
     @pytest.mark.asyncio
     async def test_enum_values_backward_compatible(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест обратной совместимости enum значений"""
         # Проверяем, что все enum значения работают
         for status in ["active", "draft", "archived"]:
-            response = await client.post(
+            response = await auth_client.post(
                 "/projects",
                 json={
                     "name": f"Status Test {status}",
@@ -430,11 +438,11 @@ class TestBackwardCompatibility:
 
     @pytest.mark.asyncio
     async def test_field_addition_backward_compatible(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест обратной совместимости при добавлении полей"""
         # Создаем проект
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Field Test", "description": "Desc", "status": "active"},
         )
@@ -464,9 +472,13 @@ class TestDataTypesContracts:
 
     @pytest.mark.asyncio
     async def test_integer_field_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации integer полей"""
+        proj = await auth_client.post(
+            "/projects", json={"name": "Type Test", "status": "active"}
+        )
+        pid = proj.json()["id"]
         # number должен быть integer
         payload = {
             "number": "not_an_integer",  # Строка вместо int
@@ -479,18 +491,18 @@ class TestDataTypesContracts:
             "object_field": "revenue",
         }
 
-        response = await client.post("/projects/1/rpi-mappings", json=payload)
+        response = await auth_client.post(f"/projects/{pid}/rpi-mappings", json=payload)
         # Должна быть ошибка валидации
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_string_field_max_length(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест максимальной длины string полей"""
         # Создаем проект с очень длинным названием
         long_name = "x" * 1000
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": long_name, "description": "Desc", "status": "active"},
         )
@@ -500,7 +512,7 @@ class TestDataTypesContracts:
 
     @pytest.mark.asyncio
     async def test_boolean_field_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации boolean полей"""
         # is_calculated должен быть boolean
@@ -515,16 +527,16 @@ class TestDataTypesContracts:
             "object_field": "revenue",
         }
 
-        response = await client.post("/projects/1/rpi-mappings", json=payload)
+        response = await auth_client.post("/projects/1/rpi-mappings", json=payload)
         # Должна быть ошибка валидации
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_datetime_field_format(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест формата datetime полей"""
-        response = await client.get("/projects")
+        response = await auth_client.get("/projects")
         assert response.status_code == 200
 
         data = response.json()
@@ -547,10 +559,10 @@ class TestAPIVersionContracts:
 
     @pytest.mark.asyncio
     async def test_api_version_in_headers(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест наличия версии API в заголовках"""
-        response = await client.get("/health")
+        response = await auth_client.get("/health")
 
         # Проверка на наличие version headers
         # В текущей реализации может быть отключено
@@ -558,7 +570,7 @@ class TestAPIVersionContracts:
 
     @pytest.mark.asyncio
     async def test_deprecated_endpoints_warning(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест предупреждений о депрецированных эндпоинтах"""
         # В текущей реализации нет депрецированных эндпоинтов
@@ -567,7 +579,7 @@ class TestAPIVersionContracts:
 
     @pytest.mark.asyncio
     async def test_api_version_negotiation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест версионной переговоров"""
         # В текущей реализации нет явного версионирования
@@ -585,10 +597,10 @@ class TestConsumerDrivenContracts:
 
     @pytest.mark.asyncio
     async def test_frontend_consumes_project_list(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест потребления списка проектов frontend'ом"""
-        response = await client.get("/projects")
+        response = await auth_client.get("/projects")
         assert response.status_code == 200
 
         data = response.json()
@@ -600,11 +612,11 @@ class TestConsumerDrivenContracts:
 
     @pytest.mark.asyncio
     async def test_frontend_consumes_project_detail(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест потребления детали проекта frontend'ом"""
         # Создаем проект
-        response = await client.post(
+        response = await auth_client.post(
             "/projects",
             json={"name": "Frontend Test", "description": "Desc", "status": "active"},
         )
@@ -612,7 +624,7 @@ class TestConsumerDrivenContracts:
         project_id = response.json()["id"]
 
         # Получаем проект
-        response = await client.get(f"/projects/{project_id}")
+        response = await auth_client.get(f"/projects/{project_id}")
         assert response.status_code == 200
 
         data = response.json()
@@ -626,10 +638,10 @@ class TestConsumerDrivenContracts:
 
     @pytest.mark.asyncio
     async def test_frontend_consumes_rpi_list(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест потребления списка RPI frontend'ом"""
-        response = await client.get("/projects/1/rpi-mappings")
+        response = await auth_client.get("/projects/1/rpi-mappings")
         assert response.status_code == 200
 
         data = response.json()
@@ -642,10 +654,10 @@ class TestConsumerDrivenContracts:
 
     @pytest.mark.asyncio
     async def test_frontend_consumes_kpi(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест потребления KPI frontend'ом"""
-        response = await client.get("/projects/kpi")
+        response = await auth_client.get("/projects/kpi")
         assert response.status_code == 200
 
         data = response.json()

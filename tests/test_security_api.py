@@ -19,22 +19,22 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin
 
 # =============================================================================
 # API2: Broken Authentication
 # =============================================================================
+
 
 class TestAuthentication:
     """Тесты аутентификации (API2)"""
 
     @pytest.mark.asyncio
     async def test_login_invalid_credentials(self, client):
-        # Неверный пароль — это 401, не 400
         response = await client.post(
             "/auth/login",
-            data={"username": "test@example.com", "password": "wrongpassword"},
+            json={"email": "test@example.com", "password": "wrongpassword"},
         )
+        print(response.json())
         assert response.status_code == 401
 
     @pytest.mark.asyncio
@@ -82,17 +82,23 @@ class TestAuthentication:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_access_protected_endpoint_with_invalid_token(self, client: AsyncClient):
+    async def test_access_protected_endpoint_with_invalid_token(
+        self, client: AsyncClient
+    ):
         """Доступ с невалидным токеном должен возвращать 401"""
         client.headers["Authorization"] = "Bearer invalid_token_12345"
         response = await client.get("/projects")
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_access_protected_endpoint_with_expired_token(self, client: AsyncClient):
+    async def test_access_protected_endpoint_with_expired_token(
+        self, client: AsyncClient
+    ):
         """Доступ с истекшим токеном должен возвращать 401"""
         # Генерируем токен с истекшим сроком (для теста используем фиктивный)
-        client.headers["Authorization"] = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjB9.abc123"
+        client.headers["Authorization"] = (
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJleHAiOjB9.abc123"
+        )
         response = await client.get("/projects")
         assert response.status_code == 401
 
@@ -100,6 +106,7 @@ class TestAuthentication:
 # =============================================================================
 # API1 & API5: Broken Object/Function Level Authorization
 # =============================================================================
+
 
 class TestAuthorization:
     """Тесты авторизации (API1, API5)"""
@@ -188,6 +195,7 @@ class TestAuthorization:
 # API3: Broken Object Property Level Authorization
 # =============================================================================
 
+
 class TestObjectPropertyAuthorization:
     """Тесты авторизации на уровне свойств объектов (API3)"""
 
@@ -209,13 +217,11 @@ class TestObjectPropertyAuthorization:
 
     @pytest.mark.asyncio
     async def test_response_does_not_expose_sensitive_fields(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
-        """Ответы API не должны содержать чувствительные поля"""
-        response = await client.get("/auth/me")
+        response = await auth_client.get("/auth/me")
         assert response.status_code == 200
         data = response.json()
-        # Проверка, что hashed_password не возвращается в ответе
         assert "hashed_password" not in data
         assert "password" not in data
 
@@ -224,25 +230,29 @@ class TestObjectPropertyAuthorization:
 # API4: Unrestricted Resource Consumption
 # =============================================================================
 
+
 class TestResourceConsumption:
     """Тесты ограничения потребления ресурсов (API4)"""
 
     @pytest.mark.asyncio
     async def test_pagination_limit_enforcement(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
-        """Лимит пагинации должен быть enforced"""
-        # Запрос с limit > 100 должен быть ограничен
-        response = await client.get("/projects/1/rpi-mappings?limit=1000")
-        # Ожидаем либо ограничение до 100, либо 422
+        # Создаём проект
+        proj = await auth_client.post(
+            "/projects", json={"name": "Limit Test", "status": "active"}
+        )
+        pid = proj.json()["id"]
+
+        response = await auth_client.get(f"/projects/{pid}/rpi-mappings?limit=1000")
         assert response.status_code in [200, 422]
 
     @pytest.mark.asyncio
     async def test_search_parameter_validation(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Параметр поиска должен иметь минимальную длину"""
-        response = await client.get("/projects?search=a")
+        response = await auth_client.get("/projects?search=a")
         # min_length=1 должен быть enforced
         assert response.status_code in [200, 422]
 
@@ -250,6 +260,7 @@ class TestResourceConsumption:
 # =============================================================================
 # API7: Server Side Request Forgery
 # =============================================================================
+
 
 class TestSSRF:
     """Тесты защиты от SSRF (API7)"""
@@ -270,6 +281,7 @@ class TestSSRF:
 # =============================================================================
 # API8: Security Misconfiguration
 # =============================================================================
+
 
 class TestSecurityConfiguration:
     """Тесты безопасности конфигурации (API8)"""
@@ -296,9 +308,9 @@ class TestSecurityConfiguration:
         # В текущей реализации CORS настроен в middleware
 
     @pytest.mark.asyncio
-    async def test_error_messages_no_leakage(self, client: AsyncClient):
+    async def test_error_messages_no_leakage(self, auth_client: AsyncClient):
         """Сообщения об ошибках не должны раскрывать внутреннюю информацию"""
-        response = await client.get("/projects/999999")
+        response = await auth_client.get("/projects/999999")
         assert response.status_code == 404
         detail = response.json().get("detail", "")
         # Проверка, что нет утечки чувствительной информации
@@ -309,6 +321,7 @@ class TestSecurityConfiguration:
 # =============================================================================
 # API9: Improper Inventory Management
 # =============================================================================
+
 
 class TestAPIInventory:
     """Тесты управления инвентаризацией API (API9)"""
@@ -349,33 +362,36 @@ class TestAPIInventory:
 # API10: Unsafe Consumption of APIs
 # =============================================================================
 
+
 class TestUnsafeAPIConsumption:
     """Тесты безопасного потребления внешних API (API10)"""
 
     @pytest.mark.asyncio
-    async def test_input_sanitization(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_input_sanitization(
+        self, auth_client: AsyncClient, db_session: AsyncSession
+    ):
         """Входные данные должны быть санитизированы"""
         # Тесты на SQL injection, XSS, etc.
         payload = {
             "name": "Test'; DROP TABLE projects;--",
             "description": "Desc",
-            "status": "active"
+            "status": "active",
         }
-        response = await client.post("/projects", json=payload)
+        response = await auth_client.post("/projects", json=payload)
         # Должно быть либо 422 (валидация), либо успешное создание с экранированием
         assert response.status_code in [201, 422]
 
     @pytest.mark.asyncio
     async def test_special_characters_in_input(
-        self, client: AsyncClient, db_session: AsyncSession
+        self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Специальные символы должны быть обработаны корректно"""
         payload = {
             "name": "<script>alert('xss')</script>",
             "description": "Desc",
-            "status": "active"
+            "status": "active",
         }
-        response = await client.post("/projects", json=payload)
+        response = await auth_client.post("/projects", json=payload)
         # Должно быть либо 422 (валидация), либо успешное создание с экранированием
         assert response.status_code in [201, 422]
 
@@ -383,6 +399,7 @@ class TestUnsafeAPIConsumption:
 # =============================================================================
 # Additional Security Tests
 # =============================================================================
+
 
 class TestAdditionalSecurity:
     """Дополнительные тесты безопасности"""

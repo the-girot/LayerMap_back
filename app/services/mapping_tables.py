@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -93,13 +94,9 @@ async def create(
     project_id: int,
     payload: MappingTableCreate,
 ) -> MappingTableOut:
-    source_id = payload.source_id  # сохранить до model_dump
-    data = payload.model_dump(exclude={"source_id"})
-    obj = MappingTable(**data, project_id=project_id)
-    db.add(obj)
-    await db.flush()  # получаем obj.id до commit
+    source_id = payload.source_id
 
-    # Привязываем источник к созданной таблице
+    # Валидируем source_id до создания таблицы
     if source_id is not None:
         source = (
             await db.execute(
@@ -109,8 +106,21 @@ async def create(
                 )
             )
         ).scalar_one_or_none()
-        if source:
-            source.mapping_table_id = obj.id
+        if source is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Source {source_id} not found in project {project_id}",
+            )
+    else:
+        source = None
+
+    data = payload.model_dump(exclude={"source_id"})
+    obj = MappingTable(**data, project_id=project_id)
+    db.add(obj)
+    await db.flush()
+
+    if source is not None:
+        source.mapping_table_id = obj.id
 
     await db.commit()
     await db.refresh(obj)
@@ -118,9 +128,8 @@ async def create(
     await cache_delete(mapping_tables_key(project_id))
 
     result = MappingTableOut.model_validate(obj)
-    result.source_id = source_id  # вернуть в ответе
+    result.source_id = source_id
     return result
-
 
 async def update(
     db: AsyncSession, project_id: int, table_id: int, payload: MappingTableUpdate
@@ -320,7 +329,23 @@ async def update_column(
     if not obj:
         return None
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+
+    # Кросс-полевая валидация: мёржим текущее состояние с патчем
+    merged_is_calculated = update_data.get("is_calculated", obj.is_calculated)
+    merged_formula = update_data.get("formula", obj.formula)
+
+    if merged_is_calculated and not merged_formula:
+        raise HTTPException(
+            status_code=422,
+            detail=[{
+                "loc": ["body", "formula"],
+                "msg": "formula обязательна когда is_calculated=True",
+                "type": "value_error.missing",
+            }],
+        )
+
+    for field, value in update_data.items():
         setattr(obj, field, value)
 
     await db.commit()

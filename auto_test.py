@@ -1,23 +1,23 @@
 # run_tests_per_file.py
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 TEST_FILES = [
-    # "tests/test_cache.py",
+    "tests/test_cache.py",
     "tests/test_contract.py",
-    # "tests/test_errors.py",
+    "tests/test_errors.py",
     "tests/test_functional_enhanced.py",
-    # "tests/test_health.py",
+    "tests/test_health.py",
     "tests/test_integration.py",
-    # "tests/test_mapping_tables_api.py",
+    "tests/test_mapping_tables_api.py",
     "tests/test_performance_api.py",
-    # "tests/test_projects_api.py",
-    # "tests/test_rpi_mappings_api.py",
+    "tests/test_projects_api.py",
+    "tests/test_rpi_mappings_api.py",
     "tests/test_security_api.py",
-    # "tests/test_sources_api.py",
-    # "tests/test_validation.py",
+    "tests/test_sources_api.py",
+    "tests/test_validation.py",
 ]
 
 OUTPUT_DIR = Path("test_results")
@@ -35,25 +35,27 @@ for test_file in TEST_FILES:
         continue
 
     stem = file_path.stem
-    out_file = OUTPUT_DIR / f"{stem}_{timestamp}.txt"
 
     print(f"Running {test_file} ...", end=" ", flush=True)
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "pytest",
+            sys.executable,
+            "-m",
+            "pytest",
             test_file,
             "-v",
             "--tb=short",
             "--no-header",
-            f"--junit-xml={OUTPUT_DIR}/{stem}_{timestamp}.xml",
+            f"--junit-xml={OUTPUT_DIR}/xml/{stem}_{timestamp}.xml",
         ],
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
-
+    status = "PASS" if result.returncode == 0 else "FAIL"
+    out_file = OUTPUT_DIR / f"{stem}_{status}_{timestamp}.txt"
     output = result.stdout + result.stderr
     out_file.write_text(output, encoding="utf-8")
 

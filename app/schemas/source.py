@@ -35,7 +35,7 @@ class SourceBase(BaseModel):
 
 
 class SourceCreate(SourceBase):
-    pass
+    type: SourceType
 
 
 class SourceUpdate(BaseModel):

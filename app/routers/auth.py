@@ -7,14 +7,10 @@ Router аутентификации.
 - GET /auth/me - получение информации о текущем пользователе
 """
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.auth import CurrentUser, DBSession
 from app.core.security import create_access_token, verify_password
-from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserLogin, UserOut
 from app.services import users as user_svc
 
@@ -24,7 +20,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/login", response_model=Token)
 async def login(
     payload: UserLogin,
-    db: Annotated[AsyncSession, Depends(DBSession)],
+    db: DBSession,
 ):
     """
     Войти в систему и получить JWT токен.
@@ -44,15 +40,17 @@ async def login(
     user = await user_svc.get_by_email(db, payload.email)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
+            headers={"WWW-Authenticate": "Bearer"},  # RFC требует этот header при 401
         )
 
     # Проверить пароль
     if not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
+            headers={"WWW-Authenticate": "Bearer"},  # RFC требует этот header при 401
         )
 
     # Проверить, активен ли пользователь
@@ -75,7 +73,7 @@ async def login(
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: UserCreate,
-    db: Annotated[AsyncSession, Depends(DBSession)],
+    db: DBSession,
 ):
     """
     Зарегистрировать нового пользователя.
@@ -95,28 +93,19 @@ async def register(
     existing_user = await user_svc.get_by_email(db, payload.email)
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Пользователь с таким email уже существует",
         )
 
     # Создать пользователя
     user = await user_svc.create(db, payload)
 
-    return UserOut(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        is_active=user.is_active,
-        is_superuser=user.is_superuser,
-        status=user.status,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-    )
+    return user
 
 
 @router.get("/me", response_model=UserOut)
 async def get_current_user_info(
-    current_user: Annotated[User, Depends(CurrentUser)],
+    current_user: CurrentUser,  # просто тип, без лишнего Depends()
 ) -> UserOut:
     """
     Получить информацию о текущем аутентифицированном пользователе.
@@ -127,13 +116,4 @@ async def get_current_user_info(
     Возвращает:
         Объект пользователя.
     """
-    return UserOut(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        is_active=current_user.is_active,
-        is_superuser=current_user.is_superuser,
-        status=current_user.status,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
-    )
+    return current_user
