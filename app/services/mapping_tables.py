@@ -20,6 +20,7 @@ from app.schemas.mapping_table import (
     MappingTableOut,
     MappingTableUpdate,
 )
+from app.schemas.rpi_mapping import RPIMappingOut
 
 # ── Таблицы ──────────────────────────────────────────────────────────────────
 
@@ -31,21 +32,25 @@ async def get_list(db: AsyncSession, project_id: int) -> list[MappingTableOut]:
         return [MappingTableOut.model_validate(r) for r in cached]
 
     rows = (
-        await db.execute(
-            select(MappingTable)
-            .where(MappingTable.project_id == project_id)
-            .options(selectinload(MappingTable.columns))
-            .order_by(MappingTable.id)
+        (
+            await db.execute(
+                select(MappingTable)
+                .where(MappingTable.project_id == project_id)
+                .options(selectinload(MappingTable.columns))
+                .order_by(MappingTable.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # Один запрос для всех source_id
     table_ids = [r.id for r in rows]
     sources = (
-        await db.execute(
-            select(Source).where(Source.mapping_table_id.in_(table_ids))
-        )
-    ).scalars().all()
+        (await db.execute(select(Source).where(Source.mapping_table_id.in_(table_ids))))
+        .scalars()
+        .all()
+    )
     source_map = {s.mapping_table_id: s.id for s in sources}
 
     result = []
@@ -54,8 +59,13 @@ async def get_list(db: AsyncSession, project_id: int) -> list[MappingTableOut]:
         item.source_id = source_map.get(row.id)
         result.append(item)
 
-    await cache_set(key, [r.model_dump() for r in result], ttl=settings.CACHE_TTL)
+    await cache_set(
+        key,
+        [MappingTableOut.model_validate(r).model_dump(mode="json") for r in rows],
+        ttl=60,
+    )
     return result
+
 
 async def get_one(
     db: AsyncSession, project_id: int, table_id: int
@@ -78,9 +88,7 @@ async def get_one(
 
     if obj:
         source = (
-            await db.execute(
-                select(Source).where(Source.mapping_table_id == obj.id)
-            )
+            await db.execute(select(Source).where(Source.mapping_table_id == obj.id))
         ).scalar_one_or_none()
 
         result = MappingTableOut.model_validate(obj)
@@ -88,6 +96,7 @@ async def get_one(
         await cache_set(key, result.model_dump(), ttl=settings.CACHE_TTL)
         return result
     return None
+
 
 async def create(
     db: AsyncSession,
@@ -130,6 +139,7 @@ async def create(
     result = MappingTableOut.model_validate(obj)
     result.source_id = source_id
     return result
+
 
 async def update(
     db: AsyncSession, project_id: int, table_id: int, payload: MappingTableUpdate
@@ -185,9 +195,7 @@ async def update(
     )
 
     current_source = (
-        await db.execute(
-            select(Source).where(Source.mapping_table_id == table_id)
-        )
+        await db.execute(select(Source).where(Source.mapping_table_id == table_id))
     ).scalar_one_or_none()
 
     result = MappingTableOut.model_validate(obj)
@@ -338,11 +346,13 @@ async def update_column(
     if merged_is_calculated and not merged_formula:
         raise HTTPException(
             status_code=422,
-            detail=[{
-                "loc": ["body", "formula"],
-                "msg": "formula обязательна когда is_calculated=True",
-                "type": "value_error.missing",
-            }],
+            detail=[
+                {
+                    "loc": ["body", "formula"],
+                    "msg": "formula обязательна когда is_calculated=True",
+                    "type": "value_error.missing",
+                }
+            ],
         )
 
     for field, value in update_data.items():

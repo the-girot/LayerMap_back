@@ -2,12 +2,14 @@
 Router аутентификации.
 
 Эндпоинты:
-- POST /auth/login - получение JWT токена
+- POST /auth/login - получение JWT токена (OAuth2PasswordRequestForm для Swagger)
+- POST /auth/login/json - получение JWT токена (JSON для фронтенда)
 - POST /auth/register - регистрация нового пользователя
 - GET /auth/me - получение информации о текущем пользователе
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.auth import CurrentUser, DBSession
 from app.core.security import create_access_token, verify_password
@@ -18,39 +20,43 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/login", response_model=Token)
-async def login(
-    payload: UserLogin,
+async def login_oauth2(
     db: DBSession,
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """
-    Войти в систему и получить JWT токен.
+    Войти в систему и получить JWT токен (OAuth2 для Swagger UI).
+
+    Используется для авторизации через Swagger UI с кнопкой Authorize.
+    Ожидает form-data: username (email) и password.
 
     Параметры:
-        payload: email и пароль пользователя.
+        form_data: email и пароль пользователя из OAuth2PasswordRequestForm.
         db: асинхронная сессия БД.
 
     Возвращает:
         JWT токен для аутентификации.
 
     Исключения:
-        HTTPException 400: если email или пароль неверны.
+        HTTPException 401: если email или пароль неверны.
+        HTTPException 403: если пользователь отключён.
     """
 
-    # Найти пользователя по email
-    user = await user_svc.get_by_email(db, payload.email)
+    # form_data.username содержит email (Swagger отправляет поле username)
+    user = await user_svc.get_by_email(db, form_data.username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
-            headers={"WWW-Authenticate": "Bearer"},  # RFC требует этот header при 401
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Проверить пароль
-    if not verify_password(payload.password, user.hashed_password):
+    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
-            headers={"WWW-Authenticate": "Bearer"},  # RFC требует этот header при 401
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Проверить, активен ли пользователь
@@ -61,12 +67,58 @@ async def login(
         )
 
     # Создать JWT токен
-    access_token_expires = None  # Используем дефолтное время из config
-    access_token = create_access_token(
-        data={"user_id": user.id},
-        expires_delta=access_token_expires,
-    )
+    access_token = create_access_token(data={"user_id": user.id})
+    return Token(access_token=access_token, token_type="bearer")
 
+
+@router.post("/login/json", response_model=Token)
+async def login_json(
+    payload: UserLogin,
+    db: DBSession,
+):
+    """
+    Войти в систему и получить JWT токен (JSON для фронтенда).
+
+    Ожидает JSON: {"email": "...", "password": "..."}
+
+    Параметры:
+        payload: email и пароль пользователя.
+        db: асинхронная сессия БД.
+
+    Возвращает:
+        JWT токен для аутентификации.
+
+    Исключения:
+        HTTPException 401: если email или пароль неверны.
+        HTTPException 403: если пользователь отключён.
+    """
+
+    # Найти пользователя по email
+    user = await user_svc.get_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный email или пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Проверить пароль
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный email или пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Проверить, активен ли пользователь
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Пользователь отключён",
+        )
+
+    # Создать JWT токен
+    access_token = create_access_token(data={"user_id": user.id})
     return Token(access_token=access_token, token_type="bearer")
 
 

@@ -73,7 +73,7 @@ class RPIMapping(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(UTC),
     )
 
     project: Mapped["Project"] = relationship(back_populates="rpi_mappings")

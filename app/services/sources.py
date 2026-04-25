@@ -44,6 +44,7 @@ async def get_one(db: AsyncSession, project_id: int, source_id: int) -> Source |
         )
     )
     obj = (await db.execute(stmt)).scalar_one_or_none()
+    print(obj)
 
     if obj:
         await cache_set(key, obj.__dict__, ttl=settings.CACHE_TTL)

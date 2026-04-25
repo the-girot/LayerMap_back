@@ -1,9 +1,8 @@
-
 # app/schemas/source.py
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.source import SourceType
 from app.schemas.mapping_table import MappingTableOut  # или Summary-версию
@@ -32,6 +31,13 @@ class SourceBase(BaseModel):
     row_count: int = 0
     mapping_table_id: int | None = None  # ← это остаётся (FK в Source)
     last_updated: datetime | None = None
+
+    @field_validator("mapping_table_id")
+    @classmethod
+    def mapping_table_id_must_be_positive(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            raise ValueError("mapping_table_id должен быть положительным числом")
+        return v
 
 
 class SourceCreate(SourceBase):

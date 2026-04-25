@@ -10,3 +10,4 @@ alembic.ini
 .venv
 uv.lock
 .env
+/test_results

@@ -259,7 +259,7 @@ class TestAuthIntegration:
         """Тест входа и доступа к защищенному эндпоинту"""
         # Логин
         response = await auth_client.post(
-            "/auth/login",
+            "/auth/login/json",
             json={"email": "test@example.com", "password": "testpassword123"},
         )
 
@@ -279,7 +279,7 @@ class TestAuthIntegration:
         """Тест истечения срока действия токена"""
         # Логин
         response = await auth_client.post(
-            "/auth/login",
+            "/auth/login/json",
             json={"email": "test@example.com", "password": "testpassword123"},
         )
         assert response.status_code == 200
@@ -299,7 +299,7 @@ class TestAuthIntegration:
     ):
         # Логинимся
         login = await auth_client.post(
-            "/auth/login",
+            "/auth/login/json",
             json={"email": "test@example.com", "password": "testpassword123"},
         )
         assert login.status_code == 200
@@ -479,7 +479,7 @@ class TestDocumentationIntegration:
         assert "/projects/{project_id}/rpi-mappings" in paths
 
         # Auth
-        assert "/auth/login" in paths
+        assert "/auth/login/json" in paths
         assert "/auth/register" in paths
         assert "/auth/me" in paths
 

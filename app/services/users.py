@@ -13,11 +13,11 @@ from app.schemas.user import UserCreate, UserUpdate
 async def get_one(db: AsyncSession, user_id: int) -> User | None:
     """
     Получить пользователя по ID.
-    
+
     Параметры:
         db: асинхронная сессия БД.
         user_id: ID пользователя.
-    
+
     Возвращает:
         ORM-объект User или None.
     """
@@ -28,11 +28,11 @@ async def get_one(db: AsyncSession, user_id: int) -> User | None:
 async def get_by_email(db: AsyncSession, email: str) -> User | None:
     """
     Получить пользователя по email.
-    
+
     Параметры:
         db: асинхронная сессия БД.
         email: email пользователя.
-    
+
     Возвращает:
         ORM-объект User или None.
     """
@@ -43,11 +43,11 @@ async def get_by_email(db: AsyncSession, email: str) -> User | None:
 async def create(db: AsyncSession, payload: UserCreate) -> User:
     """
     Создать нового пользователя.
-    
+
     Параметры:
         db: асинхронная сессия БД.
         payload: данные нового пользователя.
-    
+
     Возвращает:
         Созданный ORM-объект User.
     """
@@ -72,12 +72,12 @@ async def update(
 ) -> User | None:
     """
     Обновить пользователя.
-    
+
     Параметры:
         db: асинхронная сессия БД.
         user_id: ID пользователя.
         payload: данные для обновления.
-    
+
     Возвращает:
         Обновлённый ORM-объект User или None.
     """
@@ -90,6 +90,7 @@ async def update(
     # Хешируем пароль только если он передан
     if "password" in update_data:
         from app.core.security import get_password_hash
+
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
     for field, value in update_data.items():
@@ -108,12 +109,12 @@ async def get_project_member(
 ) -> ProjectMember | None:
     """
     Получить запись о членстве пользователя в проекте.
-    
+
     Параметры:
         db: асинхронная сессия БД.
         user_id: ID пользователя.
         project_id: ID проекта.
-    
+
     Возвращает:
         ORM-объект ProjectMember или None.
     """

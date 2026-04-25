@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,6 +13,7 @@ from app.core.cache import (
     rpi_stats_key,
     settings,
 )
+from app.models.mapping_table import MappingColumn
 from app.models.rpi_mapping import RPIMapping, RPIStatus
 from app.schemas.rpi_mapping import RPIMappingCreate, RPIMappingUpdate, RPIStatsOut
 
@@ -110,8 +112,7 @@ async def get_one(db: AsyncSession, project_id: int, rpi_id: int) -> RPIMapping 
     key = f"project:{project_id}:rpi:{rpi_id}"
     cached = await cache_get(key)
     if cached:
-        # Возвращаем "сырой" dict — роутер сериализует через response_model
-        return cached
+        return RPIMapping(**{k: v for k, v in cached.items() if not k.startswith("_")})
 
     q = (
         select(RPIMapping)
@@ -125,9 +126,17 @@ async def get_one(db: AsyncSession, project_id: int, rpi_id: int) -> RPIMapping 
 
 
 # ── Создание ──────────────────────────────────────────────────
-async def create(
-    db: AsyncSession, project_id: int, payload: RPIMappingCreate
-) -> RPIMapping:
+async def create(db: AsyncSession, project_id: int, payload: RPIMappingCreate) -> RPIMapping:
+    # Валидируем source_column_id до INSERT
+    if payload.source_column_id is not None:
+        col = (
+            await db.execute(
+                select(MappingColumn).where(MappingColumn.id == payload.source_column_id)
+            )
+        ).scalar_one_or_none()
+        if col is None:
+            raise HTTPException(404, f"Колонка source_column_id={payload.source_column_id} не найдена")
+
     max_num = await db.scalar(
         select(func.coalesce(func.max(RPIMapping.number), 0)).where(
             RPIMapping.project_id == project_id

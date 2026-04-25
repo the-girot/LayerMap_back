@@ -8,7 +8,10 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="auth/login",  # относительный путь в Swagger
+    auto_error=False,       # возвращает None вместо 401, если токен не передан
+)
 
 
 def get_password_hash(password: str) -> str:

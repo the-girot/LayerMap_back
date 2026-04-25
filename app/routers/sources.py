@@ -23,7 +23,9 @@ async def list_sources(
 
 
 @router.get("/{source_id}", response_model=SourceDetailOut)
-async def get_source(source_id: int, project: ValidProject, db: DBSession):
+async def get_source(
+   db: DBSession, _: CurrentUser, source_id: int, project: ValidProject 
+):
     obj = await svc.get_one(db, project.id, source_id)
     if not obj:
         raise HTTPException(404, "Источник не найден")
@@ -31,13 +33,15 @@ async def get_source(source_id: int, project: ValidProject, db: DBSession):
 
 
 @router.post("", response_model=SourceOut, status_code=201)
-@router.post("/", response_model=SourceOut, status_code=201)
-async def create_source(payload: SourceCreate, project: ValidProject, db: DBSession):
+async def create_source(
+    _: CurrentUser, payload: SourceCreate, project: ValidProject, db: DBSession
+):
     return await svc.create(db, project.id, payload)
 
 
 @router.patch("/{source_id}", response_model=SourceOut)
 async def update_source(
+    _: CurrentUser,
     source_id: int,
     payload: SourceUpdate,
     project: ValidProject,
@@ -50,7 +54,9 @@ async def update_source(
 
 
 @router.delete("/{source_id}", status_code=204)
-async def delete_source(source_id: int, project: ValidProject, db: DBSession):
+async def delete_source(
+    _: CurrentUser, source_id: int, project: ValidProject, db: DBSession
+):
     deleted = await svc.delete(db, project.id, source_id)
     if not deleted:
         raise HTTPException(404, "Источник не найден")
@@ -58,7 +64,7 @@ async def delete_source(source_id: int, project: ValidProject, db: DBSession):
 
 @router.get("/{source_id}/mapping-tables", response_model=list[MappingTableOut])
 async def list_mapping_tables_by_source(
-    source_id: int, project: ValidProject, db: DBSession
+    _: CurrentUser, source_id: int, project: ValidProject, db: DBSession
 ):
     src = await svc.get_one(db, project.id, source_id)
     if not src:
@@ -72,6 +78,7 @@ async def list_mapping_tables_by_source(
     status_code=201,
 )
 async def create_mapping_table_for_source(
+    _: CurrentUser,
     source_id: int,
     payload: MappingTableCreate,
     project: ValidProject,

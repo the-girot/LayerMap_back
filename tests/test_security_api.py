@@ -31,7 +31,7 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_invalid_credentials(self, client):
         response = await client.post(
-            "/auth/login",
+            "/auth/login/json",
             json={"email": "test@example.com", "password": "wrongpassword"},
         )
         print(response.json())
@@ -40,14 +40,14 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_missing_fields(self, client: AsyncClient):
         """Отсутствие обязательных полей должно возвращать 422"""
-        response = await client.post("/auth/login", json={})
+        response = await client.post("/auth/login/json", json={})
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_login_email_format_validation(self, client):
         # Отправляем сырой JSON, минуя Pydantic
         response = await client.post(
-            "/auth/login",
+            "/auth/login/json",
             data={"username": "invalid-email", "password": "password123"},
         )
         assert response.status_code in (401, 422)
