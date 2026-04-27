@@ -4,8 +4,14 @@ from fastapi import FastAPI
 
 from app.core.cache import _pool, get_redis
 from app.core.config import settings
-from app.core.middleware import CORSMiddleware as AppCORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, mapping_tables, projects, rpi_mappings, sources
+
+# Список разрешённых origins для CORS (конкретные URL, не *)
+CORS_ORIGINS = [
+    "http://localhost:5173",  # Vite dev
+    "http://localhost:3000",
+]
 
 
 @asynccontextmanager
@@ -26,8 +32,8 @@ app = FastAPI(
 )
 
 app.add_middleware(
-    AppCORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

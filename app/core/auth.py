@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 
-from app.core.security import decode_token, oauth2_scheme
+from app.core.security import decode_token, get_token_from_cookie, oauth2_scheme
 from app.database import DBSession
 from app.models.project import Project
 from app.models.project_member import ProjectRole
@@ -16,16 +16,39 @@ from app.services import users as user_svc
 
 
 async def get_current_user(
+    request: Request,
     db: DBSession,
     token: Annotated[str | None, Depends(oauth2_scheme)],
 ) -> User:
-    if not token:
+    """
+    Получить текущего пользователя.
+    
+    Приоритет аутентификации:
+    1. Authorization: Bearer <token> header (OAuth2)
+    2. Cookie: access_token=<token>
+    
+    Возвращает:
+        Объект пользователя.
+    
+    Исключения:
+        HTTPException 401: если токен отсутствует или невалиден.
+        HTTPException 403: если пользователь отключён.
+    """
+    # Пытаемся получить токен из Authorization header (OAuth2)
+    jwt_token = token
+    
+    # Если токен не найден в header, пробуем из cookie
+    if not jwt_token:
+        jwt_token = await get_token_from_cookie(request)
+    
+    if not jwt_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Не авторизован",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = decode_token(token)
+    
+    payload = decode_token(jwt_token)
     if not payload or "user_id" not in payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

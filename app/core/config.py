@@ -1,4 +1,5 @@
 import json
+import os
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,11 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "your-super-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # Cookie settings
+    COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+    COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax")
+    COOKIE_MAX_AGE: int = int(os.getenv("COOKIE_MAX_AGE", "1800"))
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

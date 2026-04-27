@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
-from fastapi import HTTPException, status
+from fastapi import Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
@@ -42,12 +42,22 @@ def create_access_token(
     )
 
 
-def decode_token(token: str) -> dict[str, Any]:
+def decode_token(token: str) -> dict[str, Any] | None:
     try:
         return jwt.decode(
             token,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
         )
-    except JWTError as e:
+    except JWTError:
         return None
+
+
+async def get_token_from_cookie(request: Request) -> str | None:
+    """
+    Получить access_token из cookie.
+    
+    Возвращает:
+        Токен из cookie или None, если cookie отсутствует.
+    """
+    return request.cookies.get("access_token")

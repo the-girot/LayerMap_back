@@ -20,7 +20,6 @@ from app.schemas.mapping_table import (
     MappingTableOut,
     MappingTableUpdate,
 )
-from app.schemas.rpi_mapping import RPIMappingOut
 
 # ── Таблицы ──────────────────────────────────────────────────────────────────
 

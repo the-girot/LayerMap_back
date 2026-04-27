@@ -30,22 +30,24 @@ class CORSMiddleware(BaseHTTPMiddleware):
         origin = request.headers.get("origin")
 
         # Обработка preflight-запросов (OPTIONS)
+                # Обработка preflight-запросов (OPTIONS)
         if request.method == "OPTIONS":
             if origin and self.is_allowed(origin):
                 response = Response(status_code=204)
                 response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Methods"] = ", ".join(
-                    self.allow_methods
-                )
-                response.headers["Access-Control-Allow-Headers"] = ", ".join(
-                    self.allow_headers
-                )
+                response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
+                
+                # ИСПРАВЛЕНИЕ: берем запрошенные заголовки из запроса
+                requested_headers = request.headers.get("Access-Control-Request-Headers")
+                if requested_headers:
+                    response.headers["Access-Control-Allow-Headers"] = requested_headers
+                else:
+                    response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)
+                
                 if self.allow_credentials:
                     response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Max-Age"] = "86400"
                 return response
-            else:
-                return Response(status_code=400)
 
         response = await call_next(request)
 

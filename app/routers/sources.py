@@ -24,7 +24,7 @@ async def list_sources(
 
 @router.get("/{source_id}", response_model=SourceDetailOut)
 async def get_source(
-   db: DBSession, _: CurrentUser, source_id: int, project: ValidProject 
+   db: DBSession, _: CurrentUser, source_id: int, project: ValidProject
 ):
     obj = await svc.get_one(db, project.id, source_id)
     if not obj:

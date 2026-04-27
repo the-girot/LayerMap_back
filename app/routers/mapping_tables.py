@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentUser
 from app.core.dependencies import ValidProject
@@ -9,7 +8,6 @@ from app.models.mapping_table import MappingColumn
 from app.schemas.mapping_table import (
     MappingColumnCreate,
     MappingColumnOut,
-    MappingColumnUpdate,
     MappingTableCreate,
     MappingTableOut,
     MappingTableUpdate,
