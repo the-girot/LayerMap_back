@@ -1,13 +1,13 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.mapping_table import MappingColumnBase
+from app.schemas.source_table import SourceColumnBase
 from app.schemas.rpi_mapping import RPIMappingBase
 
 
-def test_mapping_column_formula_required_if_calculated():
+def test_source_column_formula_required_if_calculated():
     with pytest.raises(ValidationError):
-        MappingColumnBase(
+        SourceColumnBase(
             name="calc_col",
             type="metric",
             data_type="float",
@@ -16,7 +16,7 @@ def test_mapping_column_formula_required_if_calculated():
             formula=None,
         )
 
-    col = MappingColumnBase(
+    col = SourceColumnBase(
         name="calc_col",
         type="metric",
         data_type="float",

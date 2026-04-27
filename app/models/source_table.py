@@ -12,12 +12,12 @@ class ColumnType(enum.StrEnum):
     metric = "metric"
 
 
-class MappingColumn(Base):
-    __tablename__ = "mapping_columns"
+class SourceColumn(Base):
+    __tablename__ = "source_columns"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    mapping_table_id: Mapped[int] = mapped_column(
-        ForeignKey("mapping_tables.id", ondelete="CASCADE")
+    source_table_id: Mapped[int] = mapped_column(
+        ForeignKey("source_tables.id", ondelete="CASCADE")
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[ColumnType] = mapped_column(
@@ -31,33 +31,29 @@ class MappingColumn(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    mapping_table: Mapped["MappingTable"] = relationship(back_populates="columns")
+    table: Mapped["SourceTable"] = relationship(back_populates="columns")
     rpi_mappings: Mapped[list["RPIMapping"]] = relationship(
         back_populates="source_column"
     )
 
 
-class MappingTable(Base):
-    __tablename__ = "mapping_tables"
+class SourceTable(Base):
+    __tablename__ = "source_tables"
+
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE")
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    name: Mapped[str]
-    description: Mapped[str | None]
-    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    project: Mapped["Project"] = relationship(back_populates="mapping_tables")
-    columns: Mapped[list["MappingColumn"]] = relationship(
-        back_populates="mapping_table", cascade="all, delete-orphan"
-    )
-
-    # One-to-many: один MappingTable → много Sources
-    sources: Mapped[list["Source"]] = relationship(
-        "Source",
-        back_populates="mapping_table",
-        foreign_keys="[Source.mapping_table_id]",
+    source: Mapped["Source"] = relationship(back_populates="tables")
+    columns: Mapped[list["SourceColumn"]] = relationship(
+        back_populates="table", cascade="all, delete-orphan"
     )

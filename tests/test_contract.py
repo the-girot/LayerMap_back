@@ -14,8 +14,8 @@ from httpx import AsyncClient
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.mapping_table import (
-    MappingColumnCreate,
+from app.schemas.source_table import (
+    SourceColumnCreate,
 )
 from app.schemas.project import ProjectCreate, ProjectOut
 from app.schemas.rpi_mapping import (
@@ -161,10 +161,10 @@ class TestSchemaContracts:
             RPIMappingCreate(**payload)
 
     @pytest.mark.asyncio
-    async def test_mapping_column_create_schema_validation(
+    async def test_source_column_create_schema_validation(
         self, auth_client: AsyncClient, db_session: AsyncSession
     ):
-        """Тест валидации схемы MappingColumnCreate"""
+        """Тест валидации схемы SourceColumnCreate"""
         payload = {
             "name": "test_column",
             "type": "dimension",
@@ -173,13 +173,13 @@ class TestSchemaContracts:
         }
 
         try:
-            column = MappingColumnCreate(**payload)
+            column = SourceColumnCreate(**payload)
             assert column.type == "dimension"
         except ValidationError as e:
             pytest.fail(f"Valid payload failed validation: {e}")
 
     @pytest.mark.asyncio
-    async def test_mapping_column_invalid_type(
+    async def test_source_column_invalid_type(
         self, auth_client: AsyncClient, db_session: AsyncSession
     ):
         """Тест валидации невалидного типа колонки"""
@@ -191,7 +191,7 @@ class TestSchemaContracts:
         }
 
         with pytest.raises(ValidationError):
-            MappingColumnCreate(**payload)
+            SourceColumnCreate(**payload)
 
 
 # =============================================================================

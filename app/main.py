@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.core.cache import _pool, get_redis
 from app.core.config import settings
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, mapping_tables, projects, rpi_mappings, sources
+from app.routers import auth, projects, rpi_mappings, source_tables, sources
 
 # Список разрешённых origins для CORS (конкретные URL, не *)
 CORS_ORIGINS = [
@@ -42,7 +42,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sources.router)
-app.include_router(mapping_tables.router)
+app.include_router(source_tables.router)
 app.include_router(rpi_mappings.router)
 
 

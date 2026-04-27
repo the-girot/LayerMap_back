@@ -16,8 +16,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.mapping_table import (
-    MappingColumn,
+from app.models.source_table import (
+    SourceColumn,
 )
 
 
@@ -47,7 +47,7 @@ class RPIMapping(Base):
         ForeignKey("projects.id", ondelete="CASCADE")
     )
     source_column_id: Mapped[int | None] = mapped_column(
-        ForeignKey("mapping_columns.id", ondelete="SET NULL")
+        ForeignKey("source_columns.id", ondelete="SET NULL")
     )
 
     ownership: Mapped[str | None] = mapped_column(String(128))
@@ -77,6 +77,8 @@ class RPIMapping(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="rpi_mappings")
-    source_column: Mapped["MappingColumn | None"] = relationship(
-        back_populates="rpi_mappings"
+    source_column: Mapped["SourceColumn | None"] = relationship(
+        "SourceColumn",
+        back_populates="rpi_mappings",
+        foreign_keys="[RPIMapping.source_column_id]"
     )

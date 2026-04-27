@@ -1,5 +1,19 @@
 # LayerMap Back - Project Documentation
 
+---
+## Changelog
+
+### v2.0 — 2026-04-27
+- **BREAKING** Роутер `/mapping-tables/*` удалён.
+  Используй `/sources/{source_id}/tables/*`
+- **BREAKING** Поле `Source.mapping_table_id` удалено.
+  Используй `Source.tables[]`
+- **BREAKING** Файлы переименованы:
+  `mapping_table.py` → `source_table.py` во всех слоях
+- **NEW** `RPIMapping.source_column` — вложенный объект привязанной колонки
+- **NEW** Ручной маппинг РПИ через `PATCH rpi-mappings/{id}`
+---
+
 ## 1. Project Overview
 
 **Project Name:** LayerMap Back (layermap-back)
@@ -178,7 +192,7 @@ LayerMap_back/
 │   ├── main.py                 # FastAPI application factory
 │   ├── models/                 # SQLAlchemy ORM models
 │   │   ├── __init__.py
-│   │   ├── mapping_table.py    # MappingTable and MappingColumn models
+│   │   ├── source_table.py     # SourceTable and SourceColumn models
 │   │   ├── project.py          # Project model
 │   │   ├── project_member.py   # ProjectMember model (role assignments)
 │   │   ├── rpi_mapping.py      # RPIMapping model
@@ -187,20 +201,20 @@ LayerMap_back/
 │   ├── routers/                # API route definitions
 │   │   ├── __init__.py
 │   │   ├── auth.py             # Authentication endpoints
-│   │   ├── mapping_tables.py   # Mapping tables and columns endpoints
+│   │   ├── source_tables.py    # Source tables and columns endpoints
 │   │   ├── projects.py         # Projects endpoints
 │   │   ├── rpi_mappings.py     # RPI mappings endpoints
 │   │   └── sources.py          # Sources endpoints
 │   ├── schemas/                # Pydantic schemas for validation
 │   │   ├── __init__.py
-│   │   ├── mapping_table.py    # MappingTable/Column schemas
+│   │   ├── source_table.py     # SourceTable/Column schemas
 │   │   ├── project.py          # Project schemas
 │   │   ├── rpi_mapping.py      # RPIMapping schemas
 │   │   ├── source.py           # Source schemas
 │   │   └── user.py             # User schemas
 │   └── services/               # Business logic layer
 │       ├── __init__.py
-│       ├── mapping_tables.py   # Mapping table business logic
+│       ├── source_tables.py    # Source table business logic
 │       ├── projects.py         # Project business logic
 │       ├── rpi_mappings.py     # RPI mapping business logic
 │       ├── sources.py          # Source business logic
@@ -213,7 +227,7 @@ LayerMap_back/
 │   ├── test_errors.py          # Error handling tests
 │   ├── test_functional_enhanced.py  # Functional tests
 │   ├── test_integration.py     # Integration tests
-│   ├── test_mapping_tables_api.py  # Mapping tables API tests
+│   ├── test_source_tables_api.py  # Source tables API tests
 │   ├── test_performance_api.py     # Performance tests
 │   ├── test_projects_api.py    # Projects API tests
 │   ├── test_rpi_mappings_api.py    # RPI mappings API tests
@@ -726,7 +740,7 @@ Authorization: Bearer ...
 | row_count | integer | Number of rows |
 | last_updated | datetime | Last update timestamp |
 | created_at | datetime | Creation timestamp |
-| mapping_table | object | Related mapping table (if any) |
+| tables | array | List of source tables |
 
 **Example request:**
 ```http
@@ -736,7 +750,7 @@ Authorization: Bearer ...
 
 **Example response:**
 ```json
-{ "id": 1, "project_id": 1, "name": "Source A", "description": "Desc", "type": "DB", "row_count": 1000, "last_updated": "2024-01-01T00:00:00Z", "created_at": "2024-01-01T00:00:00Z", "mapping_table": null }
+{ "id": 1, "project_id": 1, "name": "Source A", "description": "Desc", "type": "DB", "row_count": 1000, "last_updated": "2024-01-01T00:00:00Z", "created_at": "2024-01-01T00:00:00Z", "tables": [] }
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — source not found
@@ -757,7 +771,6 @@ Authorization: Bearer ...
 | description | body | string | No | Source description |
 | type | body | string | Yes | Source type: API, DB, FILE, STREAM |
 | row_count | body | integer | No | Number of rows (default: 0) |
-| mapping_table_id | body | integer | No | Related mapping table ID |
 | last_updated | body | datetime | No | Last update timestamp |
 
 **Response**
@@ -805,7 +818,6 @@ Authorization: Bearer ...
 | description | body | string | No | New source description |
 | type | body | string | No | New source type |
 | row_count | body | integer | No | New row count |
-| mapping_table_id | body | integer | No | New mapping table ID |
 | last_updated | body | datetime | No | New last update timestamp |
 
 **Response**
@@ -870,9 +882,11 @@ HTTP/1.1 204 No Content
 
 ---
 
-#### GET /projects/{project_id}/sources/{source_id}/mapping-tables
+### Source Tables Endpoints
 
-**Description:** Get mapping tables associated with a source.
+#### GET /projects/{project_id}/sources/{source_id}/tables
+
+**Description:** List all source tables for a source.
 
 **Auth required:** Yes
 
@@ -885,7 +899,7 @@ HTTP/1.1 204 No Content
 **Response**
 | Field | Type | Description |
 |-------|------|-------------|
-| id | integer | Mapping table ID |
+| id | integer | Table ID |
 | name | string | Table name |
 | description | string | Table description |
 | created_at | datetime | Creation timestamp |
@@ -894,7 +908,7 @@ HTTP/1.1 204 No Content
 
 **Example request:**
 ```http
-GET /projects/1/sources/1/mapping-tables HTTP/1.1
+GET /projects/1/sources/1/tables HTTP/1.1
 Authorization: Bearer ...
 ```
 
@@ -909,9 +923,9 @@ Authorization: Bearer ...
 
 ---
 
-#### POST /projects/{project_id}/sources/{source_id}/mapping-tables
+#### POST /projects/{project_id}/sources/{source_id}/tables
 
-**Description:** Create a mapping table associated with a source.
+**Description:** Create a source table associated with a source.
 
 **Auth required:** Yes
 
@@ -926,7 +940,7 @@ Authorization: Bearer ...
 **Response**
 | Field | Type | Description |
 |-------|------|-------------|
-| id | integer | Mapping table ID |
+| id | integer | Table ID |
 | name | string | Table name |
 | description | string | Table description |
 | created_at | datetime | Creation timestamp |
@@ -935,7 +949,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-POST /projects/1/sources/1/mapping-tables HTTP/1.1
+POST /projects/1/sources/1/tables HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer ...
 
@@ -951,11 +965,9 @@ Authorization: Bearer ...
 
 ---
 
-### Mapping Tables Endpoints
+#### GET /projects/{project_id}/sources/{source_id}/tables/{table_id}
 
-#### GET /projects/{project_id}/mapping-tables
-
-**Description:** List all mapping tables for a project.
+**Description:** Get a specific source table by ID.
 
 **Auth required:** Yes
 
@@ -963,44 +975,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
-
-**Response**
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer | Table ID |
-| name | string | Table name |
-| description | string | Table description |
-| created_at | datetime | Creation timestamp |
-| updated_at | datetime | Last update timestamp |
-| columns | array | List of columns |
-
-**Example request:**
-```http
-GET /projects/1/mapping-tables HTTP/1.1
-Authorization: Bearer ...
-```
-
-**Example response:**
-```json
-[
-  { "id": 1, "name": "Table A", "description": "Desc", "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z", "columns": [] }
-]
-```
-
-**Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — project not found
-
----
-
-#### GET /projects/{project_id}/mapping-tables/{table_id}
-
-**Description:** Get a specific mapping table by ID.
-
-**Auth required:** Yes
-
-**Request**
-| Parameter | Location | Type | Required | Description |
-|-----------|----------|------|----------|-------------|
-| project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 
 **Response**
@@ -1015,7 +990,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-GET /projects/1/mapping-tables/1 HTTP/1.1
+GET /projects/1/sources/1/tables/1 HTTP/1.1
 Authorization: Bearer ...
 ```
 
@@ -1028,51 +1003,9 @@ Authorization: Bearer ...
 
 ---
 
-#### POST /projects/{project_id}/mapping-tables
+#### PATCH /projects/{project_id}/sources/{source_id}/tables/{table_id}
 
-**Description:** Create a new mapping table for a project.
-
-**Auth required:** Yes
-
-**Request**
-| Parameter | Location | Type | Required | Description |
-|-----------|----------|------|----------|-------------|
-| project_id | path | integer | Yes | Project ID |
-| name | body | string | Yes | Table name |
-| description | body | string | No | Table description |
-| source_id | body | integer | No | Associated source ID |
-
-**Response**
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer | Table ID |
-| name | string | Table name |
-| description | string | Table description |
-| created_at | datetime | Creation timestamp |
-| updated_at | datetime | Last update timestamp |
-| columns | array | List of columns |
-
-**Example request:**
-```http
-POST /projects/1/mapping-tables HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer ...
-
-{ "name": "New Table", "description": "Desc" }
-```
-
-**Example response:**
-```json
-{ "id": 2, "name": "New Table", "description": "Desc", "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z", "columns": [] }
-```
-
-**Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — project not found, 404 — source not found (if source_id provided)
-
----
-
-#### PATCH /projects/{project_id}/mapping-tables/{table_id}
-
-**Description:** Update an existing mapping table (partial update).
+**Description:** Update an existing source table (partial update).
 
 **Auth required:** Yes
 
@@ -1080,6 +1013,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 | name | body | string | No | New table name |
 | description | body | string | No | New table description |
@@ -1096,7 +1030,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-PATCH /projects/1/mapping-tables/1 HTTP/1.1
+PATCH /projects/1/sources/1/tables/1 HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer ...
 
@@ -1112,9 +1046,9 @@ Authorization: Bearer ...
 
 ---
 
-#### DELETE /projects/{project_id}/mapping-tables/{table_id}
+#### DELETE /projects/{project_id}/sources/{source_id}/tables/{table_id}
 
-**Description:** Delete a mapping table.
+**Description:** Delete a source table.
 
 **Auth required:** Yes
 
@@ -1122,6 +1056,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 
 **Response**
@@ -1131,7 +1066,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-DELETE /projects/1/mapping-tables/1 HTTP/1.1
+DELETE /projects/1/sources/1/tables/1 HTTP/1.1
 Authorization: Bearer ...
 ```
 
@@ -1144,9 +1079,9 @@ HTTP/1.1 204 No Content
 
 ---
 
-#### GET /projects/{project_id}/mapping-tables/{table_id}/columns
+#### GET /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns
 
-**Description:** List all columns for a mapping table.
+**Description:** List all columns for a source table.
 
 **Auth required:** Yes
 
@@ -1154,13 +1089,14 @@ HTTP/1.1 204 No Content
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 
 **Response**
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer | Column ID |
-| mapping_table_id | integer | Parent table ID |
+| source_table_id | integer | Parent table ID |
 | name | string | Column name |
 | type | string | Column type: dimension, metric |
 | data_type | string | Data type (string, integer, float, boolean, date, datetime) |
@@ -1171,14 +1107,14 @@ HTTP/1.1 204 No Content
 
 **Example request:**
 ```http
-GET /projects/1/mapping-tables/1/columns HTTP/1.1
+GET /projects/1/sources/1/tables/1/columns HTTP/1.1
 Authorization: Bearer ...
 ```
 
 **Example response:**
 ```json
 [
-  { "id": 1, "mapping_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Customer ID", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
+  { "id": 1, "source_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Customer ID", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
 ]
 ```
 
@@ -1186,7 +1122,7 @@ Authorization: Bearer ...
 
 ---
 
-#### GET /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}
+#### GET /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}
 
 **Description:** Get a specific column by ID.
 
@@ -1196,6 +1132,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 | column_id | path | integer | Yes | Column ID |
 
@@ -1203,7 +1140,7 @@ Authorization: Bearer ...
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer | Column ID |
-| mapping_table_id | integer | Parent table ID |
+| source_table_id | integer | Parent table ID |
 | name | string | Column name |
 | type | string | Column type |
 | data_type | string | Data type |
@@ -1214,22 +1151,22 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-GET /projects/1/mapping-tables/1/columns/1 HTTP/1.1
+GET /projects/1/sources/1/tables/1/columns/1 HTTP/1.1
 Authorization: Bearer ...
 ```
 
 **Example response:**
 ```json
-{ "id": 1, "mapping_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Customer ID", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
+{ "id": 1, "source_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Customer ID", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — column not found
 
 ---
 
-#### POST /projects/{project_id}/mapping-tables/{table_id}/columns
+#### POST /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns
 
-**Description:** Create a new column for a mapping table.
+**Description:** Create a new column for a source table.
 
 **Auth required:** Yes
 
@@ -1237,6 +1174,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 | name | body | string | Yes | Column name |
 | type | body | string | Yes | Column type: dimension, metric |
@@ -1249,7 +1187,7 @@ Authorization: Bearer ...
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer | Column ID |
-| mapping_table_id | integer | Parent table ID |
+| source_table_id | integer | Parent table ID |
 | name | string | Column name |
 | type | string | Column type |
 | data_type | string | Data type |
@@ -1260,7 +1198,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-POST /projects/1/mapping-tables/1/columns HTTP/1.1
+POST /projects/1/sources/1/tables/1/columns HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer ...
 
@@ -1269,14 +1207,14 @@ Authorization: Bearer ...
 
 **Example response:**
 ```json
-{ "id": 2, "mapping_table_id": 1, "name": "revenue", "type": "metric", "data_type": "float", "description": "Revenue", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
+{ "id": 2, "source_table_id": 1, "name": "revenue", "type": "metric", "data_type": "float", "description": "Revenue", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — table not found, 422 — validation error (formula required for calculated columns)
 
 ---
 
-#### PATCH /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}
+#### PATCH /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}
 
 **Description:** Update an existing column (partial update).
 
@@ -1286,6 +1224,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 | column_id | path | integer | Yes | Column ID |
 | name | body | string | No | New column name |
@@ -1299,7 +1238,7 @@ Authorization: Bearer ...
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer | Column ID |
-| mapping_table_id | integer | Parent table ID |
+| source_table_id | integer | Parent table ID |
 | name | string | Column name |
 | type | string | Column type |
 | data_type | string | Data type |
@@ -1310,7 +1249,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-PATCH /projects/1/mapping-tables/1/columns/1 HTTP/1.1
+PATCH /projects/1/sources/1/tables/1/columns/1 HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer ...
 
@@ -1319,14 +1258,14 @@ Authorization: Bearer ...
 
 **Example response:**
 ```json
-{ "id": 1, "mapping_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Updated description", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
+{ "id": 1, "source_table_id": 1, "name": "customer_id", "type": "dimension", "data_type": "integer", "description": "Updated description", "is_calculated": false, "formula": null, "created_at": "2024-01-01T00:00:00Z" }
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — column not found, 422 — validation error
 
 ---
 
-#### DELETE /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}
+#### DELETE /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}
 
 **Description:** Delete a column.
 
@@ -1336,6 +1275,7 @@ Authorization: Bearer ...
 | Parameter | Location | Type | Required | Description |
 |-----------|----------|------|----------|-------------|
 | project_id | path | integer | Yes | Project ID |
+| source_id | path | integer | Yes | Source ID |
 | table_id | path | integer | Yes | Table ID |
 | column_id | path | integer | Yes | Column ID |
 
@@ -1346,7 +1286,7 @@ Authorization: Bearer ...
 
 **Example request:**
 ```http
-DELETE /projects/1/mapping-tables/1/columns/1 HTTP/1.1
+DELETE /projects/1/sources/1/tables/1/columns/1 HTTP/1.1
 Authorization: Bearer ...
 ```
 
@@ -1595,7 +1535,7 @@ Authorization: Bearer ...
 | measurement_description | body | string | No | New description |
 | source_report | body | string | No | New source report |
 | object_field | body | string | No | New object field |
-| source_column_id | body | integer | No | New source column ID |
+| source_column_id | body | integer | No | New source column ID (or null to unbind) |
 | date_added | body | date | No | New date added |
 | date_removed | body | date | No | New date removed |
 | comment | body | string | No | New comment |
@@ -1618,6 +1558,7 @@ Authorization: Bearer ...
 | source_report | string | Source report |
 | object_field | string | Object field |
 | source_column_id | integer | Source column ID |
+| source_column | object | Bound source column (if source_column_id provided) |
 | date_added | date | Date added |
 | date_removed | date | Date removed |
 | comment | string | Comment |
@@ -1636,7 +1577,7 @@ Authorization: Bearer ...
 
 **Example response:**
 ```json
-{ "id": 1, "number": 1, "project_id": 1, "ownership": "Finance", "status": "in_review", "block": "Block 1", "measurement_type": "metric", "is_calculated": false, "formula": null, "measurement": "Revenue", "measurement_description": "Total revenue", "source_report": "Report 1", "object_field": "revenue", "source_column_id": null, "date_added": "2024-01-01", "date_removed": null, "comment": "In review", "verification_file": null, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-02T00:00:00Z" }
+{ "id": 1, "number": 1, "project_id": 1, "ownership": "Finance", "status": "in_review", "block": "Block 1", "measurement_type": "metric", "is_calculated": false, "formula": null, "measurement": "Revenue", "measurement_description": "Total revenue", "source_report": "Report 1", "object_field": "revenue", "source_column_id": null, "source_column": null, "date_added": "2024-01-01", "date_removed": null, "comment": "In review", "verification_file": null, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-02T00:00:00Z" }
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — RPI mapping not found
@@ -1672,6 +1613,79 @@ HTTP/1.1 204 No Content
 ```
 
 **Error codes:** 401 — unauthorized, 403 — insufficient permissions, 404 — RPI mapping not found
+
+---
+
+### RPI Маппинг: привязка показателей к источникам
+
+Это ключевая пользовательская функция системы. Системный аналитик
+вручную связывает каждую строку РПИ (показатель или измерение)
+с конкретной колонкой из таблицы одного из источников проекта.
+
+**Пример сценария:**
+- В проекте 3 источника, в каждом по 10 таблиц, в каждой таблице 10 колонок
+- Итого 300 колонок доступны для привязки
+- В РПИ 10 строк — аналитик вручную выбирает для каждой нужную колонку
+- Показатель "Выручка" (rpi_mapping id=3) → источник "PostgreSQL DWH"
+  → таблица "sales_fact" → колонка "revenue" (source_column id=42)
+
+**Как выполнить привязку:**
+```http
+PATCH /projects/1/rpi-mappings/3 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer ...
+
+{ "source_column_id": 42 }
+```
+
+**Как сбросить привязку:**
+```http
+PATCH /projects/1/rpi-mappings/3 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer ...
+
+{ "source_column_id": null }
+```
+
+**Результат в ответе:**
+В объекте RPIMapping появится вложенный `source_column` с полной
+информацией о привязанной колонке:
+
+```json
+{
+  "id": 3,
+  "number": 3,
+  "project_id": 1,
+  "ownership": "Finance",
+  "status": "approved",
+  "block": "Sales",
+  "measurement_type": "metric",
+  "is_calculated": false,
+  "formula": null,
+  "measurement": "Revenue",
+  "measurement_description": "Total revenue",
+  "source_report": "Sales Report",
+  "object_field": "revenue",
+  "source_column_id": 42,
+  "source_column": {
+    "id": 42,
+    "source_table_id": 5,
+    "name": "revenue",
+    "type": "metric",
+    "data_type": "float",
+    "description": "Total revenue amount",
+    "is_calculated": false,
+    "formula": null,
+    "created_at": "2024-01-01T00:00:00Z"
+  },
+  "date_added": "2024-01-01",
+  "date_removed": null,
+  "comment": "Approved",
+  "verification_file": null,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-02T00:00:00Z"
+}
+```
 
 ---
 
@@ -1747,7 +1761,7 @@ GET /health HTTP/1.1
 
 **Relationships:**
 - One-to-many: `Project` → `Source`
-- One-to-many: `Project` → `MappingTable`
+- One-to-many: `Project` → `SourceTable`
 - One-to-many: `Project` → `RPIMapping`
 - One-to-many: `Project` → `ProjectMember`
 
@@ -1783,7 +1797,6 @@ GET /health HTTP/1.1
 |-------|------|-------------|-------------|
 | id | INTEGER | PRIMARY KEY, AUTOINCREMENT | Source ID |
 | project_id | INTEGER | NOT NULL, FOREIGN KEY → projects.id, ON DELETE CASCADE | Parent project ID |
-| mapping_table_id | INTEGER | NULL, FOREIGN KEY → mapping_tables.id, ON DELETE SET NULL | Associated mapping table ID |
 | name | VARCHAR(255) | NOT NULL | Source name |
 | description | TEXT | NULL | Source description |
 | type | ENUM | NOT NULL, DEFAULT 'DB' | Source type: API, DB, FILE, STREAM |
@@ -1793,38 +1806,39 @@ GET /health HTTP/1.1
 
 **Relationships:**
 - Many-to-one: `Source` → `Project` (via `project`)
-- Many-to-one: `Source` → `MappingTable` (via `mapping_table`)
+- One-to-many: `Source` → `SourceTable` (via `source_tables.source_id`)
 
 ---
 
-#### MappingTable Model
+#### SourceTable Model
 
-**Table:** `mapping_tables`
+**Table:** `source_tables`
 
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PRIMARY KEY, AUTOINCREMENT | Table ID |
 | project_id | INTEGER | NOT NULL, FOREIGN KEY → projects.id, ON DELETE CASCADE | Parent project ID |
+| source_id | INTEGER | NOT NULL, FOREIGN KEY → sources.id, ON DELETE CASCADE | Parent source ID |
 | name | VARCHAR(255) | NOT NULL | Table name |
 | description | TEXT | NULL | Table description |
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT NOW() | Creation timestamp |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT NOW() | Last update timestamp |
 
 **Relationships:**
-- Many-to-one: `MappingTable` → `Project` (via `project`)
-- One-to-many: `MappingTable` → `MappingColumn`
-- One-to-many: `MappingTable` → `Source` (via `sources.mapping_table_id`)
+- Many-to-one: `SourceTable` → `Project` (via `project`)
+- Many-to-one: `SourceTable` → `Source` (via `source`)
+- One-to-many: `SourceTable` → `SourceColumn`
 
 ---
 
-#### MappingColumn Model
+#### SourceColumn Model
 
-**Table:** `mapping_columns`
+**Table:** `source_columns`
 
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | INTEGER | PRIMARY KEY, AUTOINCREMENT | Column ID |
-| mapping_table_id | INTEGER | NOT NULL, FOREIGN KEY → mapping_tables.id, ON DELETE CASCADE | Parent table ID |
+| source_table_id | INTEGER | NOT NULL, FOREIGN KEY → source_tables.id, ON DELETE CASCADE | Parent table ID |
 | name | VARCHAR(255) | NOT NULL | Column name |
 | type | ENUM | NOT NULL, DEFAULT 'dimension' | Column type: dimension, metric |
 | data_type | VARCHAR(64) | NOT NULL | Data type: string, integer, float, boolean, date, datetime |
@@ -1834,8 +1848,8 @@ GET /health HTTP/1.1
 | created_at | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT NOW() | Creation timestamp |
 
 **Relationships:**
-- Many-to-one: `MappingColumn` → `MappingTable` (via `mapping_table`)
-- One-to-many: `MappingColumn` → `RPIMapping` (via `rpi_mappings`)
+- Many-to-one: `SourceColumn` → `SourceTable` (via `source_table`)
+- One-to-many: `SourceColumn` → `RPIMapping` (via `rpi_mappings.source_column_id`)
 
 ---
 
@@ -1848,7 +1862,7 @@ GET /health HTTP/1.1
 | id | INTEGER | PRIMARY KEY, AUTOINCREMENT | RPI mapping ID |
 | number | INTEGER | NULL | RPI number (auto-incremented) |
 | project_id | INTEGER | NOT NULL, FOREIGN KEY → projects.id, ON DELETE CASCADE | Parent project ID |
-| source_column_id | INTEGER | NULL, FOREIGN KEY → mapping_columns.id, ON DELETE SET NULL | Source column ID |
+| source_column_id | INTEGER | NULL, FOREIGN KEY → source_columns.id, ON DELETE SET NULL | Source column ID |
 | ownership | VARCHAR(128) | NULL | Ownership |
 | status | ENUM | NOT NULL, DEFAULT 'draft' | Status: approved, in_review, draft |
 | block | VARCHAR(128) | NULL | Block |
@@ -1871,7 +1885,7 @@ GET /health HTTP/1.1
 
 **Relationships:**
 - Many-to-one: `RPIMapping` → `Project` (via `project`)
-- Many-to-one: `RPIMapping` → `MappingColumn` (via `source_column`)
+- Many-to-one: `RPIMapping` → `SourceColumn` (via `source_column`)
 
 ---
 
@@ -1882,11 +1896,11 @@ erDiagram
     USERS ||--o{ PROJECT_MEMBERS : "has membership"
     PROJECTS ||--o{ PROJECT_MEMBERS : "has members"
     PROJECTS ||--o{ SOURCES : "has sources"
-    PROJECTS ||--o{ MAPPING_TABLES : "has tables"
+    PROJECTS ||--o{ SOURCE_TABLES : "has tables"
     PROJECTS ||--o{ RPI_MAPPINGS : "has mappings"
-    MAPPING_TABLES ||--o{ MAPPING_COLUMNS : "has columns"
-    MAPPING_TABLES ||--o{ SOURCES : "is mapped by"
-    MAPPING_COLUMNS ||--o{ RPI_MAPPINGS : "is source for"
+    SOURCES ||--o{ SOURCE_TABLES : "has tables"
+    SOURCE_TABLES ||--o{ SOURCE_COLUMNS : "has columns"
+    SOURCE_COLUMNS ||--o{ RPI_MAPPINGS : "is source for"
 ```
 
 ---
@@ -2002,7 +2016,6 @@ erDiagram
 | description | str \| None | No | Source description |
 | type | SourceType | No | Type: API, DB, FILE, STREAM (default: DB) |
 | row_count | int | No | Row count (default: 0) |
-| mapping_table_id | int \| None | No | Mapping table ID |
 | last_updated | datetime \| None | No | Last update timestamp |
 
 **[`SourceCreate`](app/schemas/source.py:43):**
@@ -2012,7 +2025,6 @@ erDiagram
 | description | str \| None | No | Source description |
 | type | SourceType | Yes | Source type |
 | row_count | int | No | Row count (default: 0) |
-| mapping_table_id | int \| None | No | Mapping table ID |
 | last_updated | datetime \| None | No | Last update timestamp |
 
 **[`SourceUpdate`](app/schemas/source.py:47):**
@@ -2022,7 +2034,6 @@ erDiagram
 | description | str \| None | No | New description |
 | type | SourceType \| None | No | New type |
 | row_count | int \| None | No | New row count |
-| mapping_table_id | int \| None | No | New mapping table ID |
 | last_updated | datetime \| None | No | New last update timestamp |
 
 **[`SourceOut`](app/schemas/source.py:56):**
@@ -2048,13 +2059,13 @@ erDiagram
 | row_count | int | Yes | Row count |
 | last_updated | datetime \| None | No | Last update timestamp |
 | created_at | datetime | Yes | Creation timestamp |
-| mapping_table | MappingTableOut \| None | No | Related mapping table |
+| tables | list[SourceTableOut] | No | List of source tables |
 
 ---
 
-#### Mapping Table Schemas
+#### Source Table Schemas
 
-**[`MappingColumnBase`](app/schemas/mapping_table.py:19):**
+**[`SourceColumnBase`](app/schemas/source_table.py:19):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str | Yes | Column name |
@@ -2064,7 +2075,7 @@ erDiagram
 | is_calculated | bool | No | Whether calculated (default: false) |
 | formula | str \| None | No | Formula (required if is_calculated=true) |
 
-**[`MappingColumnCreate`](app/schemas/mapping_table.py:36):**
+**[`SourceColumnCreate`](app/schemas/source_table.py:36):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str | Yes | Column name |
@@ -2074,7 +2085,7 @@ erDiagram
 | is_calculated | bool | No | Whether calculated (default: false) |
 | formula | str \| None | No | Formula |
 
-**[`MappingColumnUpdate`](app/schemas/mapping_table.py:40):**
+**[`SourceColumnUpdate`](app/schemas/source_table.py:40):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str \| None | No | New name |
@@ -2084,11 +2095,11 @@ erDiagram
 | is_calculated | bool \| None | No | New calculated flag |
 | formula | str \| None | No | New formula |
 
-**[`MappingColumnOut`](app/schemas/mapping_table.py:49):**
+**[`SourceColumnOut`](app/schemas/source_table.py:49):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | id | int | Yes | Column ID |
-| mapping_table_id | int | Yes | Parent table ID |
+| source_table_id | int | Yes | Parent table ID |
 | name | str | Yes | Column name |
 | type | ColumnType | Yes | Column type |
 | data_type | str | Yes | Data type |
@@ -2097,36 +2108,35 @@ erDiagram
 | formula | str \| None | No | Formula |
 | created_at | datetime | Yes | Creation timestamp |
 
-**[`MappingTableBase`](app/schemas/mapping_table.py:58):**
+**[`SourceTableBase`](app/schemas/source_table.py:58):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str | Yes | Table name |
 | description | str \| None | No | Table description |
 
-**[`MappingTableCreate`](app/schemas/mapping_table.py:63):**
+**[`SourceTableCreate`](app/schemas/source_table.py:63):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str | Yes | Table name |
 | description | str \| None | No | Table description |
-| source_id | int \| None | No | Associated source ID |
 
-**[`MappingTableUpdate`](app/schemas/mapping_table.py:67):**
+**[`SourceTableUpdate`](app/schemas/source_table.py:67):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | str \| None | No | New name |
 | description | str \| None | No | New description |
 
-**[`MappingTableOut`](app/schemas/mapping_table.py:72):**
+**[`SourceTableOut`](app/schemas/source_table.py:72):**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | id | int | Yes | Table ID |
 | name | str | Yes | Table name |
 | description | str \| None | No | Table description |
 | project_id | int | Yes | Parent project ID |
-| source_id | int \| None | No | Associated source ID |
+| source_id | int | Yes | Parent source ID |
 | created_at | datetime | Yes | Creation timestamp |
 | updated_at | datetime | Yes | Last update timestamp |
-| columns | list[MappingColumnOut] | No | List of columns |
+| columns | list[SourceColumnOut] | No | List of columns |
 
 ---
 
@@ -2176,6 +2186,7 @@ erDiagram
 | measurement | str \| None | No | New measurement name |
 | object_field | str \| None | No | New object field |
 | measurement_type | MeasurementType \| None | No | New measurement type |
+| source_column_id | int \| None | No | New source column ID (or null to unbind) |
 
 **[`RPIMappingOut`](app/schemas/rpi_mapping.py:78):**
 | Field | Type | Required | Description |
@@ -2194,6 +2205,7 @@ erDiagram
 | source_report | str \| None | No | Source report |
 | object_field | str | Yes | Object field |
 | source_column_id | int \| None | No | Source column ID |
+| source_column | SourceColumnOut \| None | No | Bound source column |
 | date_added | date \| None | No | Date added |
 | date_removed | date \| None | No | Date removed |
 | comment | str \| None | No | Comment |
@@ -2306,7 +2318,7 @@ erDiagram
 - **Usage:** Called by `GET /projects/{project_id}/sources`
 
 **[`get_one(db, project_id, source_id)`](app/services/sources.py:32):**
-- **Purpose:** Get a single source with mapping table
+- **Purpose:** Get a single source with tables
 - **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`
 - **Returns:** `Source \| None`
 - **Side effects:** Cache read/write, DB query with selectinload
@@ -2335,84 +2347,77 @@ erDiagram
 
 ---
 
-#### Mapping Tables Service ([`app/services/mapping_tables.py`](app/services/mapping_tables.py:1))
+#### Source Tables Service ([`app/services/source_tables.py`](app/services/source_tables.py:1))
 
-**[`get_list(db, project_id)`](app/services/mapping_tables.py:28):**
-- **Purpose:** Get all mapping tables with columns
-- **Parameters:** `db: AsyncSession`, `project_id: int`
-- **Returns:** `list[MappingTableOut]`
+**[`get_list(db, project_id, source_id)`](app/services/source_tables.py:28):**
+- **Purpose:** Get all source tables for a source
+- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`
+- **Returns:** `list[SourceTableOut]`
 - **Side effects:** Cache read/write, DB query with joins
-- **Usage:** Called by `GET /projects/{project_id}/mapping-tables`
+- **Usage:** Called by `GET /projects/{project_id}/sources/{source_id}/tables`
 
-**[`get_one(db, project_id, table_id)`](app/services/mapping_tables.py:70):**
-- **Purpose:** Get a single mapping table with columns
-- **Parameters:** `db: AsyncSession`, `project_id: int`, `table_id: int`
-- **Returns:** `MappingTableOut \| None`
+**[`get_one(db, project_id, source_id, table_id)`](app/services/source_tables.py:70):**
+- **Purpose:** Get a single source table with columns
+- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`, `table_id: int`
+- **Returns:** `SourceTableOut \| None`
 - **Side effects:** Cache read/write
-- **Usage:** Called by `GET /projects/{project_id}/mapping-tables/{table_id}`
+- **Usage:** Called by `GET /projects/{project_id}/sources/{source_id}/tables/{table_id}`
 
-**[`create(db, project_id, payload)`](app/services/mapping_tables.py:101):**
-- **Purpose:** Create a new mapping table
-- **Parameters:** `db: AsyncSession`, `project_id: int`, `payload: MappingTableCreate`
-- **Returns:** `MappingTableOut`
-- **Side effects:** DB INSERT, updates source.mapping_table_id, cache invalidation
-- **Usage:** Called by `POST /projects/{project_id}/mapping-tables`
+**[`create(db, project_id, source_id, payload)`](app/services/source_tables.py:101):**
+- **Purpose:** Create a new source table
+- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`, `payload: SourceTableCreate`
+- **Returns:** `SourceTableOut`
+- **Side effects:** DB INSERT, cache invalidation
+- **Usage:** Called by `POST /projects/{project_id}/sources/{source_id}/tables`
 
-**[`update(db, project_id, table_id, payload)`](app/services/mapping_tables.py:144):**
-- **Purpose:** Update a mapping table
-- **Parameters:** `db: AsyncSession`, `project_id: int`, `table_id: int`, `payload: MappingTableUpdate`
-- **Returns:** `MappingTableOut \| None`
-- **Side effects:** DB UPDATE, updates source.mapping_table_id if changed, cache invalidation
-- **Usage:** Called by `PATCH /projects/{project_id}/mapping-tables/{table_id}`
+**[`update(db, project_id, source_id, table_id, payload)`](app/services/source_tables.py:144):**
+- **Purpose:** Update a source table
+- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`, `table_id: int`, `payload: SourceTableUpdate`
+- **Returns:** `SourceTableOut \| None`
+- **Side effects:** DB UPDATE, cache invalidation
+- **Usage:** Called by `PATCH /projects/{project_id}/sources/{source_id}/tables/{table_id}`
 
-**[`delete(db, project_id, table_id)`](app/services/mapping_tables.py:206):**
-- **Purpose:** Delete a mapping table
-- **Parameters:** `db: AsyncSession`, `project_id: int`, `table_id: int`
+**[`delete(db, project_id, source_id, table_id)`](app/services/source_tables.py:206):**
+- **Purpose:** Delete a source table
+- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`, `table_id: int`
 - **Returns:** `bool`
 - **Side effects:** DB DELETE, cache invalidation
-- **Usage:** Called by `DELETE /projects/{project_id}/mapping-tables/{table_id}`
+- **Usage:** Called by `DELETE /projects/{project_id}/sources/{source_id}/tables/{table_id}`
 
-**[`get_by_source(db, project_id, source_id)`](app/services/mapping_tables.py:228):**
-- **Purpose:** Get mapping tables associated with a source
-- **Parameters:** `db: AsyncSession`, `project_id: int`, `source_id: int`
-- **Returns:** `list[MappingTableOut]`
-- **Side effects:** DB query
-- **Usage:** Called by `GET /projects/{project_id}/sources/{source_id}/mapping-tables`
-
-**[`get_columns(db, table_id)`](app/services/mapping_tables.py:268):**
+**[`get_columns(db, table_id)`](app/services/source_tables.py:228):**
 - **Purpose:** Get all columns for a table
 - **Parameters:** `db: AsyncSession`, `table_id: int`
-- **Returns:** `list[MappingColumnOut]`
+- **Returns:** `list[SourceColumnOut]`
 - **Side effects:** Cache read/write
-- **Usage:** Called by `GET /projects/{project_id}/mapping-tables/{table_id}/columns`
+- **Usage:** Called by `GET /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns`
 
-**[`get_column(db, table_id, column_id)`](app/services/mapping_tables.py:291):**
+**[`get_column(db, table_id, column_id)`](app/services/source_tables.py:251):**
 - **Purpose:** Get a single column
 - **Parameters:** `db: AsyncSession`, `table_id: int`, `column_id: int`
-- **Returns:** `MappingColumnOut \| None`
+- **Returns:** `SourceColumnOut \| None`
 - **Side effects:** Cache read/write
-- **Usage:** Called by `GET /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}`
+- **Usage:** Called by `GET /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}`
 
-**[`create_column(db, table_id, payload)`](app/services/mapping_tables.py:315):**
+**[`create_column(db, table_id, payload)`](app/services/source_tables.py:275):**
 - **Purpose:** Create a new column
-- **Parameters:** `db: AsyncSession`, `table_id: int`, `payload: MappingColumnCreate`
-- **Returns:** `MappingColumnOut`
+- **Parameters:** `db: AsyncSession`, `table_id: int`, `payload: SourceColumnCreate`
+- **Returns:** `SourceColumnOut`
 - **Side effects:** DB INSERT, cache invalidation
-- **Usage:** Called by `POST /projects/{project_id}/mapping-tables/{table_id}/columns`
+- **Usage:** Called by `POST /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns`
 
-**[`update_column(db, table_id, column_id, payload)`](app/services/mapping_tables.py:326):**
+**[`update_column(db, table_id, column_id, payload)`](app/services/source_tables.py:284):**
 - **Purpose:** Update a column with cross-field validation
-- **Parameters:** `db: AsyncSession`, `table_id: int`, `column_id: int`, `payload: MappingColumnUpdate`
-- **Returns:** `MappingColumnOut \| None`
+- **Parameters:** `db: AsyncSession`, `table_id: int`, `column_id: int`, `payload: SourceColumnUpdate`
+- **Returns:** `SourceColumnOut \| None`
 - **Side effects:** DB UPDATE, validates formula required for calculated columns, cache invalidation
-- **Usage:** Called by `PATCH /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}`
+- **Usage:** Called by `PATCH /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}`
 
-**[`delete_column(db, table_id, column_id)`](app/services/mapping_tables.py:370):**
+**[`delete_column(db, table_id, column_id)`](app/services/source_tables.py:328):**
 - **Purpose:** Delete a column
 - **Parameters:** `db: AsyncSession`, `table_id: int`, `column_id: int`
 - **Returns:** `bool`
 - **Side effects:** DB DELETE, cache invalidation
-- **Usage:** Called by `DELETE /projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}`
+- **Usage:** Called by `DELETE /projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}`
 
 ---
 
@@ -2450,7 +2455,7 @@ erDiagram
 - **Purpose:** Update an RPI mapping
 - **Parameters:** `db: AsyncSession`, `project_id: int`, `rpi_id: int`, `payload: RPIMappingUpdate`
 - **Returns:** `RPIMapping \| None`
-- **Side effects:** DB UPDATE, cache invalidation
+- **Side effects:** DB UPDATE, validates source_column_id, cache invalidation
 - **Usage:** Called by `PATCH /projects/{project_id}/rpi-mappings/{rpi_id}`
 
 **[`delete(db, project_id, rpi_id)`](app/services/rpi_mappings.py:178):**
@@ -2721,8 +2726,8 @@ pytest -m use_real_redis
 - Async factory functions for test data creation:
   - `create_project()`
   - `create_source()`
-  - `create_mapping_table()`
-  - `create_mapping_column()`
+  - `create_source_table()`
+  - `create_source_column()`
   - `create_rpi()`
 
 **Test Files:**
@@ -2731,7 +2736,7 @@ pytest -m use_real_redis
 - `test_errors.py` — Error handling tests
 - `test_functional_enhanced.py` — Comprehensive functional tests
 - `test_integration.py` — Integration tests across components
-- `test_mapping_tables_api.py` — Mapping tables API tests
+- `test_source_tables_api.py` — Source tables API tests
 - `test_performance_api.py` — Performance benchmark tests
 - `test_projects_api.py` — Projects API tests
 - `test_rpi_mappings_api.py` — RPI mappings API tests
@@ -2764,8 +2769,8 @@ Test markers:
 
 ### Known Bugs or Edge Cases
 
-1. **[`app/routers/mapping_tables.py:123`](app/routers/mapping_tables.py:123):** `update_column` endpoint accepts `MappingColumnCreate` instead of `MappingColumnUpdate` — type mismatch
-2. **[`app/services/mapping_tables.py:64`](app/services/mapping_tables.py:64):** `get_list` serializes using `RPIMappingOut` instead of `MappingTableOut` — likely a copy-paste error
+1. **[`app/routers/source_tables.py:123`](app/routers/source_tables.py:123):** `update_column` endpoint accepts `SourceColumnCreate` instead of `SourceColumnUpdate` — type mismatch
+2. **[`app/services/source_tables.py:64`](app/services/source_tables.py:64):** `get_list` serializes using `RPIMappingOut` instead of `SourceTableOut` — likely a copy-paste error
 3. **[`app/services/sources.py:47`](app/services/sources.py:47):** Debug `print(obj)` statement should be removed in production
 
 ### Planned Improvements (from code comments)
@@ -2790,7 +2795,8 @@ Test markers:
 |------|------------|
 | **RPI** | Reporting and Planning Integration — the domain concept being modeled |
 | **RPI Mapping** | A record linking a measurement to an object field, with ownership and status |
-| **Mapping Table** | A structured definition of columns (dimensions and metrics) for data mapping |
+| **Source Table** | A structured definition of columns (dimensions and metrics) for data mapping |
+| **Source Column** | A column within a source table, representing a dimension or metric |
 | **Source** | A data source (API, DB, FILE, STREAM) that feeds into the mapping system |
 | **Dimension** | A categorical attribute used for grouping/filtering in reports |
 | **Metric** | A numerical measure to be aggregated in reports |
@@ -2807,5 +2813,3 @@ Test markers:
 | **AsyncSession** | SQLAlchemy's async session for non-blocking database operations |
 | **Cascade** | Database referential action (CASCADE, SET NULL) for related records |
 | **TTL** | Time-To-Live — cache expiration time in seconds |
-
-

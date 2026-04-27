@@ -2,42 +2,9 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, model_validator
 
-from app.models.mapping_table import ColumnType
 from app.models.rpi_mapping import MeasurementType, RPIStatus
-
-
-# ── MappingColumn ─────────────────────────────────────────────
-class MappingColumnBase(BaseModel):
-    name: str
-    type: ColumnType
-    data_type: str
-    description: str | None = None
-    is_calculated: bool = False
-    formula: str | None = None
-
-    @model_validator(mode="after")
-    def check_formula(self):
-        if self.is_calculated and not self.formula:
-            raise ValueError("formula обязательна для расчётных колонок")
-        return self
-
-
-class MappingColumnCreate(MappingColumnBase):
-    pass
-
-
-class MappingColumnUpdate(MappingColumnBase):
-    name: str | None = None
-    type: ColumnType | None = None
-    data_type: str | None = None
-
-
-class MappingColumnOut(MappingColumnBase):
-    id: int
-    mapping_table_id: int
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
+from app.models.source_table import ColumnType
+from app.schemas.source_table import SourceColumnOut
 
 
 # ── RPIMapping ────────────────────────────────────────────────
@@ -81,6 +48,9 @@ class RPIMappingOut(RPIMappingBase):
     project_id: int
     created_at: datetime
     updated_at: datetime
+
+    # вложенная колонка источника
+    source_column: SourceColumnOut | None = None
 
     model_config = {"from_attributes": True}
 

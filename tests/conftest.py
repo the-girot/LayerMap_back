@@ -63,7 +63,7 @@ async def clean_tables(session_maker):
             await session.execute(
                 text(
                     "TRUNCATE users, project_members, projects, sources, "
-                    "mapping_tables, mapping_columns, rpi_mappings "
+                    "source_tables, source_columns, rpi_mappings "
                     "RESTART IDENTITY CASCADE"
                 )
             )

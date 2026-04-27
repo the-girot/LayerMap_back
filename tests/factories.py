@@ -3,7 +3,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.mapping_table import ColumnType, MappingColumn, MappingTable
+from app.models.source_table import ColumnType, SourceColumn, SourceTable
 from app.models.project import Project, ProjectStatus
 from app.models.rpi_mapping import MeasurementType, RPIMapping, RPIStatus
 from app.models.source import Source, SourceType
@@ -35,25 +35,25 @@ async def create_source(
     return src
 
 
-async def create_mapping_table(
-    session: AsyncSession, project: Project, source=None, name="Таблица"
+async def create_source_table(
+    session: AsyncSession, source: Source, name="Таблица"
 ):
-    mt = MappingTable(
-        name="Таблица",
+    st = SourceTable(
+        name=name,
         description="Тестовая таблица",
-        project_id=project.id,
+        source_id=source.id,
     )
-    session.add(mt)
+    session.add(st)
     await session.commit()
-    await session.refresh(mt)
-    return mt
+    await session.refresh(st)
+    return st
 
 
-async def create_mapping_column(
-    session: AsyncSession, table: MappingTable, name="customer_id"
+async def create_source_column(
+    session: AsyncSession, table: SourceTable, name="customer_id"
 ):
-    col = MappingColumn(
-        mapping_table_id=table.id,
+    col = SourceColumn(
+        source_table_id=table.id,
         name=name,
         type=ColumnType.dimension,
         data_type="integer",

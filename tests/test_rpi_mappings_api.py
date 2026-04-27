@@ -3,9 +3,10 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import (
-    create_mapping_column,
-    create_mapping_table,
+    create_source_column,
+    create_source_table,
     create_project,
+    create_source,
     create_rpi,
 )
 
@@ -15,8 +16,9 @@ async def test_create_rpi_requires_formula_if_calculated(
     auth_client: AsyncClient, db_session: AsyncSession
 ):
     project = await create_project(db_session)
-    mt = await create_mapping_table(db_session, project)
-    col = await create_mapping_column(db_session, mt)
+    source = await create_source(db_session, project)
+    st = await create_source_table(db_session, source)
+    col = await create_source_column(db_session, st)
 
     resp_bad = await auth_client.post(
         f"/projects/{project.id}/rpi-mappings",
@@ -70,8 +72,9 @@ async def test_rpi_list_filters_and_pagination(
     auth_client: AsyncClient, db_session: AsyncSession
 ):
     project = await create_project(db_session)
-    mt = await create_mapping_table(db_session, project)
-    col = await create_mapping_column(db_session, mt)
+    source = await create_source(db_session, project)
+    st = await create_source_table(db_session, source)
+    col = await create_source_column(db_session, st)
     await create_rpi(db_session, project, col)
     await create_rpi(db_session, project, col)
     await create_rpi(db_session, project, col)
@@ -95,8 +98,9 @@ async def test_rpi_list_filters_and_pagination(
 @pytest.mark.anyio
 async def test_rpi_stats(auth_client: AsyncClient, db_session: AsyncSession):
     project = await create_project(db_session)
-    mt = await create_mapping_table(db_session, project)
-    col = await create_mapping_column(db_session, mt)
+    source = await create_source(db_session, project)
+    st = await create_source_table(db_session, source)
+    col = await create_source_column(db_session, st)
     await create_rpi(db_session, project, col)
 
     resp = await auth_client.get(f"/projects/{project.id}/rpi-mappings/stats")

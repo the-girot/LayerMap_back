@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from app.models.mapping_table import ColumnType
+from app.models.source_table import ColumnType
 
 
 class DataType(str, Enum):
@@ -15,8 +15,8 @@ class DataType(str, Enum):
     datetime = "datetime"
 
 
-# ── MappingColumn ─────────────────────────────────────────────
-class MappingColumnBase(BaseModel):
+# ── SourceColumn ─────────────────────────────────────────────
+class SourceColumnBase(BaseModel):
     name: str
     type: ColumnType = ColumnType.dimension
     data_type: str
@@ -33,11 +33,11 @@ class MappingColumnBase(BaseModel):
         return self
 
 
-class MappingColumnCreate(MappingColumnBase):
+class SourceColumnCreate(SourceColumnBase):
     data_type: DataType
 
 
-class MappingColumnUpdate(BaseModel):
+class SourceColumnUpdate(BaseModel):
     name: str | None = None
     type: ColumnType | None = None
     data_type: str | None = None
@@ -46,35 +46,34 @@ class MappingColumnUpdate(BaseModel):
     formula: str | None = None
 
 
-class MappingColumnOut(MappingColumnBase):
+class SourceColumnOut(SourceColumnBase):
     id: int
-    mapping_table_id: int
+    source_table_id: int
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-# ── MappingTable ──────────────────────────────────────────────
-class MappingTableBase(BaseModel):
+# ── SourceTable ──────────────────────────────────────────────
+class SourceTableBase(BaseModel):
     name: str
     description: str | None = None
 
 
-class MappingTableCreate(MappingTableBase):
-    source_id: int | None = None
+class SourceTableCreate(SourceTableBase):
+    pass
 
 
-class MappingTableUpdate(BaseModel):
+class SourceTableUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
 
 
-class MappingTableOut(MappingTableBase):
+class SourceTableOut(SourceTableBase):
     id: int
-    project_id: int
-    source_id: int | None = None  # вычисляется через Sources
+    source_id: int
     created_at: datetime
     updated_at: datetime
-    columns: list["MappingColumnOut"] = []
+    columns: list["SourceColumnOut"] = []
 
     model_config = ConfigDict(from_attributes=True)

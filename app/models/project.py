@@ -34,9 +34,6 @@ class Project(Base):
     sources: Mapped[list["Source"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
-    mapping_tables: Mapped[list["MappingTable"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
     rpi_mappings: Mapped[list["RPIMapping"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

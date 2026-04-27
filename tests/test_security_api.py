@@ -173,12 +173,12 @@ class TestAuthorization:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_unauthorized_user_cannot_access_mapping_tables(
+    async def test_unauthorized_user_cannot_access_source_tables(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Неавторизованный пользователь не должен иметь доступ к таблицам маппинга"""
+        """Неавторизованный пользователь не должен иметь доступ к таблицам источников"""
         client.headers.pop("Authorization", None)
-        response = await client.get("/projects/1/mapping-tables")
+        response = await client.get("/projects/1/sources/1/tables")
         assert response.status_code == 401
 
     @pytest.mark.asyncio

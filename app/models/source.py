@@ -29,9 +29,6 @@ class Source(Base):
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE")
     )
-    mapping_table_id: Mapped[int | None] = mapped_column(
-        ForeignKey("mapping_tables.id", ondelete="SET NULL")
-    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     type: Mapped[SourceType] = mapped_column(Enum(SourceType), default=SourceType.DB)
@@ -42,7 +39,6 @@ class Source(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="sources")
-    mapping_table: Mapped["MappingTable | None"] = relationship(
-        "MappingTable",
-        back_populates="sources",
+    tables: Mapped[list["SourceTable"]] = relationship(
+        back_populates="source", cascade="all, delete-orphan"
     )

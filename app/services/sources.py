@@ -37,7 +37,7 @@ async def get_one(db: AsyncSession, project_id: int, source_id: int) -> Source |
 
     stmt = (
         select(Source)
-        .options(selectinload(Source.mapping_table))
+        .options(selectinload(Source.tables))
         .where(
             Source.id == source_id,
             Source.project_id == project_id,

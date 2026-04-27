@@ -13,8 +13,8 @@ from app.core.cache import (
     rpi_stats_key,
     settings,
 )
-from app.models.mapping_table import MappingColumn
 from app.models.rpi_mapping import RPIMapping, RPIStatus
+from app.models.source_table import SourceColumn
 from app.schemas.rpi_mapping import RPIMappingCreate, RPIMappingUpdate, RPIStatsOut
 
 
@@ -131,7 +131,7 @@ async def create(db: AsyncSession, project_id: int, payload: RPIMappingCreate) -
     if payload.source_column_id is not None:
         col = (
             await db.execute(
-                select(MappingColumn).where(MappingColumn.id == payload.source_column_id)
+                select(SourceColumn).where(SourceColumn.id == payload.source_column_id)
             )
         ).scalar_one_or_none()
         if col is None:

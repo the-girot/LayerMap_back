@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import settings
 from app.database import Base
-from app.models.mapping_table import MappingColumn, MappingTable  # noqa: F401
+from app.models.source_table import SourceColumn, SourceTable  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.project_member import ProjectMember  # noqa: F401
 from app.models.rpi_mapping import RPIMapping  # noqa: F401

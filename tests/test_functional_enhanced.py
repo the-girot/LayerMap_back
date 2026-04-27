@@ -272,12 +272,12 @@ class TestSourceEdgeCases:
 
 
 # =============================================================================
-# Mapping Table Edge Cases
+# Source Table Edge Cases
 # =============================================================================
 
 
-class TestMappingTableEdgeCases:
-    """Edge cases для таблиц маппинга"""
+class TestSourceTableEdgeCases:
+    """Edge cases для таблиц источников"""
 
     @pytest.fixture(autouse=True)
     def auth(self, authenticated): pass
@@ -285,7 +285,7 @@ class TestMappingTableEdgeCases:
     @pytest.fixture
     async def project_with_source(self, client: AsyncClient):
         """Создаёт проект + источник, возвращает (project_id, source_id)"""
-        project_id = await create_project(client, "MT Base Project")
+        project_id = await create_project(client, "ST Base Project")
         src_resp = await client.post(
             f"/projects/{project_id}/sources",
             json={"name": "Base Source", "description": "", "type": "DB", "row_count": 0},
@@ -295,46 +295,46 @@ class TestMappingTableEdgeCases:
         return project_id, source_id
 
     @pytest.mark.asyncio
-    async def test_mapping_table_with_empty_description(
+    async def test_source_table_with_empty_description(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, source_id = project_with_source
-        payload = {"name": "Test Table", "description": "", "source_id": source_id}
-        response = await client.post(f"/projects/{project_id}/mapping-tables", json=payload)
+        payload = {"name": "Test Table", "description": ""}
+        response = await client.post(f"/projects/{project_id}/sources/{source_id}/tables", json=payload)
         assert response.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_mapping_table_missing_source(
+    async def test_source_table_missing_source(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, _ = project_with_source
-        payload = {"name": "Test", "description": "Desc", "source_id": 9999}
-        response = await client.post(f"/projects/{project_id}/mapping-tables", json=payload)
+        payload = {"name": "Test", "description": "Desc"}
+        response = await client.post(f"/projects/{project_id}/sources/9999/tables", json=payload)
         assert response.status_code in [404, 422]
 
     @pytest.mark.asyncio
-    async def test_mapping_table_nonexistent_project(
+    async def test_source_table_nonexistent_project(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         _, source_id = project_with_source
-        payload = {"name": "Test", "description": "Desc", "source_id": source_id}
-        response = await client.post("/projects/9999/mapping-tables", json=payload)
+        payload = {"name": "Test", "description": "Desc"}
+        response = await client.post("/projects/9999/sources/9999/tables", json=payload)
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_mapping_table_column_with_formula(
+    async def test_source_table_column_with_formula(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, source_id = project_with_source
         table_resp = await client.post(
-            f"/projects/{project_id}/mapping-tables",
-            json={"name": "Test Table", "description": "Desc", "source_id": source_id},
+            f"/projects/{project_id}/sources/{source_id}/tables",
+            json={"name": "Test Table", "description": "Desc"},
         )
         assert table_resp.status_code == 201
         table_id = table_resp.json()["id"]
 
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "calculated_column",
                 "type": "metric",
@@ -347,19 +347,19 @@ class TestMappingTableEdgeCases:
         assert response.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_mapping_table_column_without_formula(
+    async def test_source_table_column_without_formula(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, source_id = project_with_source
         table_resp = await client.post(
-            f"/projects/{project_id}/mapping-tables",
-            json={"name": "Test Table", "description": "Desc", "source_id": source_id},
+            f"/projects/{project_id}/sources/{source_id}/tables",
+            json={"name": "Test Table", "description": "Desc"},
         )
         assert table_resp.status_code == 201
         table_id = table_resp.json()["id"]
 
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "calculated_column",
                 "type": "metric",
@@ -372,19 +372,19 @@ class TestMappingTableEdgeCases:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_mapping_table_column_invalid_type(
+    async def test_source_table_column_invalid_type(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, source_id = project_with_source
         table_resp = await client.post(
-            f"/projects/{project_id}/mapping-tables",
-            json={"name": "Test Table", "description": "Desc", "source_id": source_id},
+            f"/projects/{project_id}/sources/{source_id}/tables",
+            json={"name": "Test Table", "description": "Desc"},
         )
         assert table_resp.status_code == 201
         table_id = table_resp.json()["id"]
 
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "test_column",
                 "type": "invalid_type",
@@ -395,19 +395,19 @@ class TestMappingTableEdgeCases:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_mapping_table_column_invalid_data_type(
+    async def test_source_table_column_invalid_data_type(
         self, client: AsyncClient, db_session: AsyncSession, project_with_source
     ):
         project_id, source_id = project_with_source
         table_resp = await client.post(
-            f"/projects/{project_id}/mapping-tables",
-            json={"name": "Test Table", "description": "Desc", "source_id": source_id},
+            f"/projects/{project_id}/sources/{source_id}/tables",
+            json={"name": "Test Table", "description": "Desc"},
         )
         assert table_resp.status_code == 201
         table_id = table_resp.json()["id"]
 
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "test_column",
                 "type": "dimension",
@@ -703,7 +703,7 @@ class TestErrorScenarios:
         response = await client.get(f"/projects/{project_id}/sources/999999")
         assert response.status_code == 404
 
-        response = await client.get(f"/projects/{project_id}/mapping-tables/999999")
+        response = await client.get(f"/projects/{project_id}/sources/9999/tables/999999")
         assert response.status_code == 404
 
         response = await client.get(f"/projects/{project_id}/rpi-mappings/999999")
@@ -878,15 +878,15 @@ class TestBusinessLogic:
 
         # Создаём таблицу с реальным source_id
         table_response = await client.post(
-            f"/projects/{project_id}/mapping-tables",
-            json={"name": "Formula Test", "description": "Desc", "source_id": source_id},
+            f"/projects/{project_id}/sources/{source_id}/tables",
+            json={"name": "Formula Test", "description": "Desc"},
         )
         assert table_response.status_code == 201
         table_id = table_response.json()["id"]
 
         # Создаем колонку без формулы (is_calculated=false)
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "normal_column",
                 "type": "dimension",
@@ -899,7 +899,7 @@ class TestBusinessLogic:
 
         # Создаем колонку с формулой (is_calculated=true)
         response = await client.post(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns",
             json={
                 "name": "calculated_column",
                 "type": "metric",
@@ -914,7 +914,7 @@ class TestBusinessLogic:
 
         # Обновляем колонку на is_calculated=true без формулы
         response = await client.patch(
-            f"/projects/{project_id}/mapping-tables/{table_id}/columns/{column_id}",
+            f"/projects/{project_id}/sources/{source_id}/tables/{table_id}/columns/{column_id}",
             json={
                 "is_calculated": True
                 # formula намеренно отсутствует

@@ -89,18 +89,25 @@ class TestLoad:
         assert avg_time < 1.0
 
     @pytest.mark.asyncio
-    async def test_concurrent_mapping_table_requests(
+    async def test_concurrent_source_table_requests(
         self, auth_client: AsyncClient, db_session: AsyncSession
     ):
-        """Одновременные запросы к таблицам маппинга"""
+        """Одновременные запросы к таблицам источников"""
         proj = await auth_client.post(
             "/projects", json={"name": "Load Test", "status": "active"}
         )
         assert proj.status_code == 201
         pid = proj.json()["id"]
+        # Создаём источник
+        src = await auth_client.post(
+            f"/projects/{pid}/sources",
+            json={"name": "Source", "description": "", "type": "DB", "row_count": 0},
+        )
+        assert src.status_code == 201
+        sid = src.json()["id"]
         num_requests = 30
         tasks = [
-            auth_client.get(f"/projects/{pid}/mapping-tables")
+            auth_client.get(f"/projects/{pid}/sources/{sid}/tables")
             for _ in range(num_requests)
         ]
         responses = await asyncio.gather(*tasks)

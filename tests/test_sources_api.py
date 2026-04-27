@@ -15,7 +15,6 @@ async def test_create_source(auth_client: AsyncClient, db_session: AsyncSession)
             "description": "Описание",
             "type": "DB",
             "row_count": 0,
-            "mapping_table_id": None,
         },
     )
     assert resp.status_code == 201
