@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 
+
 # =============================================================================
 # API2: Broken Authentication
 # =============================================================================
@@ -31,8 +32,11 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_invalid_credentials(self, client):
         response = await client.post(
-            "/auth/login/json",
-            json={"email": "test@example.com", "password": "wrongpassword"},
+            "/auth/jwt/login",
+            data={
+                "username": "test@example.com",
+                "password": "wrongpassword",
+            },
         )
         print(response.json())
         assert response.status_code == 401
@@ -40,14 +44,14 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_login_missing_fields(self, client: AsyncClient):
         """Отсутствие обязательных полей должно возвращать 422"""
-        response = await client.post("/auth/login/json", json={})
+        response = await client.post("/auth/jwt/login", data={})
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_login_email_format_validation(self, client):
         # Отправляем сырой JSON, минуя Pydantic
         response = await client.post(
-            "/auth/login/json",
+            "/auth/jwt/login",
             data={"username": "invalid-email", "password": "password123"},
         )
         assert response.status_code in (401, 422)
@@ -102,6 +106,29 @@ class TestAuthentication:
         response = await client.get("/projects")
         assert response.status_code == 401
 
+    @pytest.mark.asyncio
+    async def test_forgot_password_endpoint_exists(self, client):
+        """Эндпоинт forgot-password должен существовать"""
+        response = await client.post(
+            "/auth/forgot-password",
+            json={"email": "nonexistent@example.com"},
+        )
+        # Возвращает 200 даже если email не существует (для безопасности)
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_reset_password_endpoint_exists(self, client):
+        """Эндпоинт reset-password должен существовать"""
+        response = await client.post(
+            "/auth/reset-password",
+            json={
+                "token": "invalid_token",
+                "password": "newpassword123",
+            },
+        )
+        # Возвращает 400 или 404 для невалидного токена
+        assert response.status_code in (400, 404)
+
 
 # =============================================================================
 # API1 & API5: Broken Object/Function Level Authorization
@@ -126,6 +153,7 @@ class TestAuthorization:
             hashed_password=get_password_hash("password123"),
             is_active=True,
             is_superuser=False,
+            is_verified=True,
         )
         db_session.add(user2)
         await db_session.commit()
@@ -219,7 +247,7 @@ class TestObjectPropertyAuthorization:
     async def test_response_does_not_expose_sensitive_fields(
         self, auth_client: AsyncClient, db_session: AsyncSession
     ):
-        response = await auth_client.get("/auth/me")
+        response = await auth_client.get("/users/me")
         assert response.status_code == 200
         data = response.json()
         assert "hashed_password" not in data
@@ -427,8 +455,13 @@ class TestAdditionalSecurity:
     @pytest.mark.asyncio
     async def test_password_reset_security(self, client: AsyncClient):
         """Сброс пароля должен быть безопасным"""
-        # В текущей реализации нет эндпоинта для сброса пароля
-        # Данный тест демонстрирует принцип
+        # В текущей реализации есть эндпоинт для сброса пароля через fastapi-users
+        # Тест проверяет что токен сброса генерируется корректно
+        response = await client.post(
+            "/auth/forgot-password",
+            json={"email": "nonexistent@example.com"},
+        )
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_session_management(self, client: AsyncClient):

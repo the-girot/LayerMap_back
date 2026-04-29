@@ -12,7 +12,8 @@ class RPIMappingBase(BaseModel):
     ownership: str | None = None
     status: RPIStatus = RPIStatus.draft
     block: str | None = None
-    measurement_type: MeasurementType
+    measurement_type: MeasurementType | None = None
+    dimension: str | None = None
     is_calculated: bool = False
     formula: str | None = None
     measurement: str

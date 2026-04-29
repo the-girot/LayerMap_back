@@ -67,13 +67,14 @@ async def create_source_column(
     return col
 
 
-async def create_rpi(session: AsyncSession, project: Project, column=None):
+async def create_rpi(session: AsyncSession, project: Project, column=None, dimension=None):
     rpi = RPIMapping(
         project_id=project.id,
         ownership="Финансовый департамент",
         status=RPIStatus.draft,
         block="Блок 1",
         measurement_type=MeasurementType.metric,
+        dimension=dimension,
         is_calculated=False,
         formula=None,
         measurement="Выручка",

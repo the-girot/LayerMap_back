@@ -1,5 +1,5 @@
 import enum
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -53,10 +53,13 @@ class RPIMapping(Base):
     ownership: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[RPIStatus] = mapped_column(Enum(RPIStatus), default=RPIStatus.draft)
     block: Mapped[str | None] = mapped_column(String(128))
-    measurement_type: Mapped[MeasurementType] = mapped_column(Enum(MeasurementType))
+    measurement_type: Mapped[MeasurementType | None] = mapped_column(
+        Enum(MeasurementType), nullable=True
+    )
     is_calculated: Mapped[bool] = mapped_column(Boolean, server_default="false")
     formula: Mapped[str | None] = mapped_column(Text)
 
+    dimension: Mapped[str | None] = mapped_column(String(255), nullable=True)
     measurement: Mapped[str] = mapped_column(String(255), nullable=False)
     measurement_description: Mapped[str | None] = mapped_column(Text)
     source_report: Mapped[str | None] = mapped_column(String(255))

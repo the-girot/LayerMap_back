@@ -31,6 +31,7 @@ async def get_list(
     status: str | None = None,
     ownership: str | None = None,
     measurement_type: str | None = None,
+    dimension: str | None = None,
     is_calculated: bool | None = None,
     search: str | None = None,
     skip: int = 0,
@@ -40,6 +41,7 @@ async def get_list(
         status=status,
         ownership=ownership,
         measurement_type=measurement_type,
+        dimension=dimension,
         is_calculated=is_calculated,
         search=search,
         skip=skip,
@@ -61,6 +63,8 @@ async def get_list(
         q = q.where(RPIMapping.ownership == ownership)
     if measurement_type:
         q = q.where(RPIMapping.measurement_type == measurement_type)
+    if dimension:
+        q = q.where(RPIMapping.dimension.ilike(f"%{dimension}%"))
     if is_calculated is not None:
         q = q.where(RPIMapping.is_calculated == is_calculated)
     if search:
@@ -68,6 +72,7 @@ async def get_list(
         q = q.where(
             or_(
                 RPIMapping.measurement.ilike(like),
+                RPIMapping.dimension.ilike(like),
                 RPIMapping.object_field.ilike(like),
                 RPIMapping.ownership.ilike(like),
             )
@@ -154,13 +159,12 @@ async def create(db: AsyncSession, project_id: int, payload: RPIMappingCreate) -
 async def update(
     db: AsyncSession, project_id: int, rpi_id: int, payload: RPIMappingUpdate
 ) -> RPIMapping | None:
-    obj = await get_one(db, project_id, rpi_id)
-    if not obj or isinstance(obj, dict):
-        # Если пришёл dict из кэша — перезапрашиваем из БД
-        q = select(RPIMapping).where(
-            RPIMapping.id == rpi_id, RPIMapping.project_id == project_id
-        )
-        obj = (await db.execute(q)).scalar_one_or_none()
+    # Always query DB directly — cached objects from get_one() are detached
+    # and would fail on db.refresh() with "not persistent within this Session"
+    q = select(RPIMapping).where(
+        RPIMapping.id == rpi_id, RPIMapping.project_id == project_id
+    )
+    obj = (await db.execute(q)).scalar_one_or_none()
     if not obj:
         return None
 

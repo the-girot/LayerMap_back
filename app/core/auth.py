@@ -1,8 +1,26 @@
+"""
+Аутентификация и авторизация через fastapi-users.
+
+Содержит:
+- Настройку JWT-аутентификации (BearerTransport + JWTStrategy)
+- FastAPIUsers — центральный объект библиотеки
+- Зависимости current_active_user, current_superuser
+- require_project_role — фабрика для проверки прав доступа к проекту
+"""
+
+import logging
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
+from fastapi_users import FastAPIUsers
+from fastapi_users.authentication import (
+    AuthenticationBackend,
+    CookieTransport,  # ← вместо BearerTransport
+    JWTStrategy,
+)
 
-from app.core.security import decode_token, get_token_from_cookie, oauth2_scheme
+from app.core.config import settings
+from app.core.user_manager import get_user_manager
 from app.database import DBSession
 from app.models.project import Project
 from app.models.project_member import ProjectRole
@@ -10,87 +28,55 @@ from app.models.user import User
 from app.services import projects as project_svc
 from app.services import users as user_svc
 
+logger = logging.getLogger(__name__)
+
+# ─── Cookie transport ───────────────────────────────────────────────────────
+
+cookie_transport = CookieTransport(
+    cookie_name="layermap_access",
+    cookie_max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    cookie_secure=False,  # только HTTPS (в dev можно False)
+    cookie_httponly=True,  # недоступен из JS
+    cookie_samesite="lax",  # защита от CSRF
+)
+
+# ─── JWT strategy ───────────────────────────────────────────────────────────
+
+
+def get_jwt_strategy() -> JWTStrategy:
+    return JWTStrategy(
+        secret=settings.JWT_SECRET_KEY,
+        lifetime_seconds=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+# ─── Auth backend ───────────────────────────────────────────────────────────
+
+auth_backend = AuthenticationBackend(
+    name="jwt",
+    transport=cookie_transport,  # ← было bearer_transport
+    get_strategy=get_jwt_strategy,
+)
+
 # ---------------------------------------------------------------------------
-# get_current_user
+# FastAPIUsers — центральный объект
 # ---------------------------------------------------------------------------
 
+fastapi_users = FastAPIUsers[User, int](
+    get_user_manager=get_user_manager,
+    auth_backends=[auth_backend],
+)
 
-async def get_current_user(
-    request: Request,
-    db: DBSession,
-    token: Annotated[str | None, Depends(oauth2_scheme)],
-) -> User:
-    """
-    Получить текущего пользователя.
-    
-    Приоритет аутентификации:
-    1. Authorization: Bearer <token> header (OAuth2)
-    2. Cookie: access_token=<token>
-    
-    Возвращает:
-        Объект пользователя.
-    
-    Исключения:
-        HTTPException 401: если токен отсутствует или невалиден.
-        HTTPException 403: если пользователь отключён.
-    """
-    # Пытаемся получить токен из Authorization header (OAuth2)
-    jwt_token = token
-    
-    # Если токен не найден в header, пробуем из cookie
-    if not jwt_token:
-        jwt_token = await get_token_from_cookie(request)
-    
-    if not jwt_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Не авторизован",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    payload = decode_token(jwt_token)
-    if not payload or "user_id" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Невалидный токен",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+# ---------------------------------------------------------------------------
+# Зависимости для роутеров
+# ---------------------------------------------------------------------------
 
-    user_id: int = payload["user_id"]
-    user = await user_svc.get_one(db, user_id)
+current_active_user = fastapi_users.current_user(active=True)
+current_superuser = fastapi_users.current_user(active=True, superuser=True)
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Пользователь не найден",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Пользователь отключён",
-        )
-
-    return user
-
-
-CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-async def get_current_active_superuser(
-    current_user: CurrentUser,
-) -> User:
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Требуется доступ суперпользователя.",
-        )
-    return current_user
-
-
-CurrentSuperuser = Annotated[User, Depends(get_current_active_superuser)]
-
+# Type alias для удобного использования в роутерах
+CurrentUser = Annotated[User, Depends(current_active_user)]
+CurrentSuperuser = Annotated[User, Depends(current_superuser)]
 
 # ---------------------------------------------------------------------------
 # ACL: фабрика зависимостей для проекта

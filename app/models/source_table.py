@@ -21,7 +21,7 @@ class SourceColumn(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[ColumnType] = mapped_column(
-        Enum(ColumnType), default=ColumnType.dimension
+        Enum(ColumnType, name="columntype_rpi"), default=ColumnType.dimension
     )
     data_type: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)

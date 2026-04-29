@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # fastapi-users secrets
+    RESET_PASSWORD_TOKEN_SECRET: str = "reset-password-secret-change-in-production"
+    VERIFICATION_TOKEN_SECRET: str = "verification-secret-change-in-production"
+
     # Cookie settings
     COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "true").lower() == "true"
     COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax")
@@ -34,7 +38,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        extra="ignore",  # ← игнорировать неизвестные переменные
+        extra="ignore",
     )
 
 

@@ -34,9 +34,10 @@ async def list_rpi_mappings(
     status: RPIStatus  | None = Query(None, description="approved | in_review | draft"),
     ownership: str | None = Query(None),
     measurement_type: str | None = Query(None, description="dimension | metric"),
+    dimension: str | None = Query(None, description="Фильтр по измерению (частичное совпадение)"),
     is_calculated: bool | None = Query(None),
     search: str | None = Query(
-        None, min_length=1, description="Поиск по measurement, object_field, ownership"
+        None, min_length=1, description="Поиск по measurement, dimension, object_field, ownership"
     ),
 ):
     return await svc.get_list(
@@ -45,6 +46,7 @@ async def list_rpi_mappings(
         status=status,
         ownership=ownership,
         measurement_type=measurement_type,
+        dimension=dimension,
         is_calculated=is_calculated,
         search=search,
         skip=pagination.skip,

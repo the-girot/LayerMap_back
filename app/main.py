@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.cache import _pool, get_redis
 from app.core.config import settings
-from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, projects, rpi_mappings, source_tables, sources
 
 # Список разрешённых origins для CORS (конкретные URL, не *)
@@ -39,7 +39,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
+# ---------------------------------------------------------------------------
+# Роутеры аутентификации
+# ---------------------------------------------------------------------------
+
+app.include_router(auth.get_auth_router())
+
+# ---------------------------------------------------------------------------
+# Роутеры приложения
+# ---------------------------------------------------------------------------
+
 app.include_router(projects.router)
 app.include_router(sources.router)
 app.include_router(source_tables.router)

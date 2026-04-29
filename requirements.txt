@@ -7,3 +7,4 @@ pydantic>=2.7.0
 pydantic-settings>=2.2.0
 redis[asyncio]>=5.0.0
 python-multipart>=0.0.9
+fastapi-users[sqlalchemy]>=12.1.0

@@ -15,25 +15,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.core.cache as cache_module
-from app.core.auth import get_current_user
-from app.core.security import get_password_hash as _hash
+from app.core.auth import current_active_user
 from app.database import Base, get_db
 from app.main import app
 from app.models.user import User
 
 FAKE_PASSWORD = "testpassword123"
-FAKE_PASSWORD_HASH = _hash(FAKE_PASSWORD)
-
-FAKE_USER = User(
-    id=1,
-    email="test@example.com",
-    full_name="Test User",
-    hashed_password=FAKE_PASSWORD_HASH,
-    is_active=True,
-    is_superuser=True,
-    created_at=datetime.now(UTC),
-    updated_at=datetime.now(UTC),
-)
 
 
 @pytest.fixture(scope="session")
@@ -67,12 +54,18 @@ async def clean_tables(session_maker):
                     "RESTART IDENTITY CASCADE"
                 )
             )
+            # Создаем тестового суперпользователя с правильными полями fastapi-users
             await session.execute(
                 text(
-                    "INSERT INTO users (id, email, full_name, hashed_password, is_active, is_superuser) "
-                    "VALUES (1, 'test@example.com', 'Test User', :pw, true, true)"
+                    "INSERT INTO users (id, email, full_name, hashed_password, is_active, "
+                    "is_superuser, is_verified, created_at, updated_at) "
+                    "VALUES (1, 'test@example.com', 'Test User', :pw, true, true, true, "
+                    ":now, :now)"
                 ),
-                {"pw": FAKE_PASSWORD_HASH},
+                {
+                    "pw": "pbkdf2:sha256:260000$testsalt$testhash",
+                    "now": datetime.now(UTC),
+                },
             )
             await session.execute(
                 text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users))")
@@ -105,10 +98,44 @@ def auto_mock_redis(request, monkeypatch):
 
 
 @pytest.fixture
-def authenticated():
-    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
-    yield FAKE_USER
-    app.dependency_overrides.pop(get_current_user, None)
+async def authenticated(db_session, monkeypatch):
+    """
+    Фикстура для аутентификации. Возвращает пользователя и мокает зависимости.
+    """
+    # Получаем тестового пользователя из БД
+    result = await db_session.execute(
+        text("SELECT * FROM users WHERE email = 'test@example.com'")
+    )
+    user_row = result.first()
+
+    # Создаем объект User
+    user = User(
+        id=user_row.id,
+        email=user_row.email,
+        full_name=user_row.full_name,
+        hashed_password=user_row.hashed_password,
+        is_active=user_row.is_active,
+        is_superuser=user_row.is_superuser,
+        is_verified=user_row.is_verified,
+        created_at=user_row.created_at,
+        updated_at=user_row.updated_at,
+    )
+
+    # Мокаем get_user_manager
+    async def mock_get_user_manager():
+        yield None
+
+    monkeypatch.setattr(app, "get_user_manager", mock_get_user_manager)
+
+    # Мокаем current_active_user
+    async def mock_current_user():
+        return user
+
+    app.dependency_overrides[current_active_user] = mock_current_user
+
+    yield user
+
+    app.dependency_overrides.pop(current_active_user, None)
 
 
 @pytest.fixture
@@ -123,59 +150,18 @@ async def client() -> AsyncClient:
 @pytest.fixture
 async def auth_client(client: AsyncClient, authenticated) -> AsyncClient:
     """AsyncClient с аутентифицированным первым пользователем."""
+    # Получаем токен для аутентификации
+    login_response = await client.post(
+        "/auth/jwt/login",
+        data={
+            "username": "test@example.com",
+            "password": FAKE_PASSWORD,
+        },
+    )
+
+    if login_response.status_code == 200:
+        tokens = login_response.json()
+        access_token = tokens["access_token"]
+        client.headers["Authorization"] = f"Bearer {access_token}"
+
     yield client
-
-
-@pytest.fixture
-async def seeded_project_id(auth_client: AsyncClient) -> int:
-    """Проект, созданный первым пользователем. Второй не имеет к нему доступа."""
-    response = await auth_client.post(
-        "/projects",
-        json={"name": "Seeded Project for 403 test", "status": "active"},
-    )
-    assert response.status_code == 201
-    return response.json()["id"]
-
-
-@pytest.fixture
-async def another_user_client(session_maker) -> AsyncClient:
-    """Второй пользователь — реальный объект в БД, НЕ суперпользователь."""
-    from app.core.security import get_password_hash
-
-    async with session_maker() as session:
-        async with session.begin():
-            await session.execute(
-                text(
-                    "INSERT INTO users (email, full_name, hashed_password, is_active, is_superuser) "
-                    "VALUES ('another@example.com', 'Another User', :pw, true, false)"
-                ),
-                {"pw": get_password_hash("AnotherPass123!")},
-            )
-
-        result = await session.execute(
-            text(
-                "SELECT id, created_at, updated_at FROM users WHERE email = 'another@example.com'"
-            )
-        )
-        row = result.one()
-
-    another_user = User(
-        id=row.id,
-        email="another@example.com",
-        full_name="Another User",
-        hashed_password=get_password_hash("AnotherPass123!"),
-        is_active=True,
-        is_superuser=False,
-        created_at=row.created_at,  # ← берём из БД
-        updated_at=row.updated_at,  # ← берём из БД
-    )
-
-    app.dependency_overrides[get_current_user] = lambda: another_user
-
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://testserver",
-    ) as c:
-        yield c
-
-    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
