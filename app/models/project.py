@@ -40,3 +40,9 @@ class Project(Base):
     members: Mapped[list["ProjectMember"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
+    dwh_tables: Mapped[list["DWHTable"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+    layer_mappings: Mapped[list["LayerMapping"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )

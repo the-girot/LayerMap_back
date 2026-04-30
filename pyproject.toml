@@ -24,6 +24,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "uvicorn[standard]>=0.29.0",
     "fakeredis>=2.35.1",
+    "fastapi-users[sqlalchemy]>=12.1.0",
 ]
 
 

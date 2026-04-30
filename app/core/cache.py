@@ -90,6 +90,34 @@ def mapping_tables_key(project_id: int) -> str:
     return f"project:{project_id}:mapping_tables"
 
 
+def dwh_tables_key(project_id: int) -> str:
+    return f"project:{project_id}:dwh_tables"
+
+
+def dwh_table_key(project_id: int, table_id: int) -> str:
+    return f"project:{project_id}:dwh_table:{table_id}"
+
+
+def dwh_columns_key(table_id: int) -> str:
+    return f"dwh_columns:{table_id}"
+
+
+def dwh_column_key(table_id: int, column_id: int) -> str:
+    return f"dwh_column:{table_id}:{column_id}"
+
+
+def layer_mappings_key(project_id: int) -> str:
+    return f"project:{project_id}:layer_mappings"
+
+
+def layer_mapping_key(project_id: int, mapping_id: int) -> str:
+    return f"project:{project_id}:layer_mapping:{mapping_id}"
+
+
+def lineage_key(project_id: int) -> str:
+    return f"project:{project_id}:lineage"
+
+
 def hash_params(**kwargs) -> str:
     """Детерминированный хэш query-параметров для ключа кэша.
     MD5 используется только как быстрая хэш-функция, не для криптографии."""

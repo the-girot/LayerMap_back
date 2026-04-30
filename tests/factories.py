@@ -67,6 +67,79 @@ async def create_source_column(
     return col
 
 
+async def create_dwh_table(
+    session: AsyncSession,
+    project: Project,
+    layer: str = "STG",
+    name: str = "dwh_table",
+):
+    """Создать DWH-таблицу."""
+    from app.models.dwh import DWHLayer, DWHTable
+
+    tbl = DWHTable(
+        project_id=project.id,
+        layer=DWHLayer(layer),
+        name=name,
+        description="Тестовая DWH-таблица",
+    )
+    session.add(tbl)
+    await session.commit()
+    await session.refresh(tbl)
+    return tbl
+
+
+async def create_dwh_column(
+    session: AsyncSession, table, name="col_1", data_type="integer"
+):
+    """Создать колонку в DWH-таблице."""
+    from app.models.dwh import DWHColumn
+
+    col = DWHColumn(
+        dwh_table_id=table.id,
+        name=name,
+        data_type=data_type,
+        description="Тестовая колонка",
+        is_calculated=False,
+        formula=None,
+    )
+    session.add(col)
+    await session.commit()
+    await session.refresh(col)
+    return col
+
+
+async def create_layer_mapping(
+    session: AsyncSession,
+    project: Project,
+    target_table,
+    source_tables: list,
+    transformation: str | None = None,
+    algorithm: str | None = None,
+):
+    """Создать маппинг с источниками."""
+    from app.models.dwh import LayerMapping, LayerMappingSource
+
+    mapping = LayerMapping(
+        project_id=project.id,
+        target_table_id=target_table.id,
+        transformation=transformation,
+        algorithm=algorithm,
+    )
+    session.add(mapping)
+    await session.flush()
+
+    for st in source_tables:
+        lms = LayerMappingSource(
+            mapping_id=mapping.id,
+            source_table_id=st.id,
+        )
+        session.add(lms)
+
+    await session.commit()
+    await session.refresh(mapping)
+    return mapping
+
+
 async def create_rpi(session: AsyncSession, project: Project, column=None, dimension=None):
     rpi = RPIMapping(
         project_id=project.id,

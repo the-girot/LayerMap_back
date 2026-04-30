@@ -56,3 +56,33 @@ from .user import (
 from .user import (
     UserUpdate as UserUpdate,
 )
+from .dwh import (
+    DWHColumnCreate as DWHColumnCreate,
+)
+from .dwh import (
+    DWHColumnOut as DWHColumnOut,
+)
+from .dwh import (
+    DWHColumnUpdate as DWHColumnUpdate,
+)
+from .dwh import (
+    DWHTableCreate as DWHTableCreate,
+)
+from .dwh import (
+    DWHTableOut as DWHTableOut,
+)
+from .dwh import (
+    DWHTableUpdate as DWHTableUpdate,
+)
+from .dwh import (
+    LayerMappingCreate as LayerMappingCreate,
+)
+from .dwh import (
+    LayerMappingOut as LayerMappingOut,
+)
+from .dwh import (
+    LayerMappingUpdate as LayerMappingUpdate,
+)
+from .dwh import (
+    LineageOut as LineageOut,
+)
